@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python3:*)",
+      "Bash(rm:*)",
+      "Bash(source:*)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(echo === Test 4: Status endpoint ===:*)",
+      "WebFetch(domain:www.youtube.com)",
+      "WebSearch",
+      "WebFetch(domain:youtubetranscript.com)",
+      "WebFetch(domain:tactiq.io)"
+    ]
+  }
+}

@@ -1,14 +1,14 @@
 # AI Fashion Designer 👗✨
 
-Welcome to the AI Fashion Designer! This is a Vision-First RAG (Retrieval-Augmented Generation) backend service that takes the tedious work out of cataloging fashion items and makes them instantly searchable via natural language. 
+Welcome to **AI Fashion Designer**! Imagine having a personal AI stylist at your fingertips. Instead of just searching for individual items, you can tell the AI Fashion Designer exactly what you're looking for, and it will thoughtfully curate a cohesive, top-to-bottom outfit for you. 
 
-Because let's face it, no one wants to manually type out "yellow and black embroidered saree for weddings" 500 times.
+Whether you need a complete look for a summer wedding or a sharp casual outfit for the weekend, it acts just like a human fashion stylist—using its deep knowledge to match top and bottom wear perfectly into one unified design.
 
 ## What it does
 
 1. **Look & Learn**: Feeds garment images to Google Gemini Pro Vision to automatically extract structured fashion metadata (category, color, occasion, style tags).
 2. **Remember**: Embeds this metadata using OpenAI's `text-embedding-3-small` and stores it into Pinecone.
-3. **Find**: Lets you search for clothes simply by describing them. Ask for "something elegant for a party" and the app will do the heavy lifting.
+3. **Design & Find**: You describe the vibe or occasion. The system does the heavy lifting, acting as your personal stylist to retrieve matching pieces that create the perfect overall look.
 
 All of this works without you ever touching a CSV file. You're welcome.
 

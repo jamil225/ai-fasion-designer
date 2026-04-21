@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Fashion Search</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    header p {
+      font-size: 0.85rem;
+      color: #6e6e73;
+      margin-top: 0.25rem;
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 0.5rem;
+      max-width: 640px;
+      margin: 0 auto 1.5rem;
+    }
+
+    .search-bar input {
+      flex: 1;
+      padding: 0.65rem 1rem;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      font-size: 1rem;
+      background: #fff;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .search-bar input:focus { border-color: #0071e3; }
+
+    .search-bar button {
+      padding: 0.65rem 1.25rem;
+      background: #0071e3;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    .search-bar button:hover { background: #0077ed; }
+    .search-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #browse-btn { background: #6e6e73; }
+    #browse-btn:hover:not(:disabled) { background: #3a3a3c; }
+
+    .ingest-bar {
+      max-width: 640px;
+      margin: 0 auto 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    #ingest-btn {
+      padding: 0.5rem 1rem;
+      background: #fff;
+      color: #d93025;
+      border: 1px solid #d93025;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    #ingest-btn:hover:not(:disabled) { background: #d93025; color: #fff; }
+    #ingest-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #ingest-status {
+      font-size: 0.8rem;
+      color: #6e6e73;
+    }
+
+    #ingest-status.error { color: #d93025; }
+    #ingest-status.success { color: #1a8f3c; }
+
+    #status {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #6e6e73;
+      min-height: 1.2em;
+      margin-bottom: 1rem;
+    }
+
+    #status.error { color: #d93025; }
+
+    #grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .tile {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      width: 190px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tile img {
+      width: 100%;
+      height: 190px;
+      object-fit: cover;
+      background: #e5e5ea;
+      display: block;
+    }
+
+    .tile .placeholder {
+      width: 100%;
+      height: 190px;
+      background: #e5e5ea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+    }
+
+    .tile-body {
+      padding: 0.65rem 0.75rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .score {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #0071e3;
+    }
+
+    .meta-row {
+      font-size: 0.72rem;
+      color: #3a3a3c;
+      line-height: 1.4;
+    }
+
+    .meta-row span.label {
+      color: #8e8e93;
+      font-weight: 500;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      margin-top: 0.1rem;
+    }
+
+    .tag {
+      background: #f2f2f7;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 0.65rem;
+      color: #3a3a3c;
+    }
+
+    .caption {
+      font-size: 0.68rem;
+      color: #6e6e73;
+      font-style: italic;
+      line-height: 1.4;
+      margin-top: 0.15rem;
+      border-top: 1px solid #f2f2f7;
+      padding-top: 0.3rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>AI Fashion Search</h1>
+  <p>Vision-first garment search powered by Gemini + Pinecone</p>
+</header>
+
+<div class="search-bar">
+  <input type="text" id="query" placeholder="e.g. red wedding dress, casual blue jacket..." />
+  <button id="btn" onclick="search()">Search</button>
+  <button id="browse-btn" onclick="browseAll()" style="background:#6e6e73;">Browse All</button>
+</div>
+
+<div class="ingest-bar">
+  <button id="ingest-btn" onclick="ingestAll()">⬆ Ingest All Images</button>
+  <span id="ingest-status"></span>
+</div>
+
+<div id="status"></div>
+<div id="grid"></div>
+
+<script>
+  const API_KEY = "test-key-123";  // local dev only
+
+  document.getElementById("query").addEventListener("keydown", e => {
+    if (e.key === "Enter") search();
+  });
+
+  async function search() {
+    const query = document.getElementById("query").value.trim();
+    if (!query) return;
+
+    const btn = document.getElementById("btn");
+    const status = document.getElementById("status");
+    const grid = document.getElementById("grid");
+
+    btn.disabled = true;
+    status.className = "";
+    status.textContent = "Searching…";
+    grid.innerHTML = "";
+
+    try {
+      const t0 = performance.now();
+      const res = await fetch("/v1/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": API_KEY
+        },
+        body: JSON.stringify({ query, top_k: 5, strict_mode: false })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || res.statusText);
+      }
+
+      const data = await res.json();
+      const elapsed = Math.round(performance.now() - t0);
+      const latency = data.latency_ms != null ? data.latency_ms : elapsed;
+
+      if (!data.results || data.results.length === 0) {
+        status.textContent = "No results found.";
+      } else {
+        status.textContent = `${data.results.length} results · latency: ${latency}ms`;
+        renderTiles(data.results);
+      }
+    } catch (err) {
+      status.className = "error";
+      status.textContent = "Error: " + err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderTiles(results) {
+    const grid = document.getElementById("grid");
+    grid.innerHTML = "";
+
+    results.forEach((r, i) => {
+      const attrs = r.matched_attributes || {};
+      // image_path is a full filesystem path — extract just the filename
+      const filename = (r.image_path || "").split("/").pop().split("\\").pop();
+      const score = r.score != null ? (r.score * 100).toFixed(1) + "%" : "—";
+      const category = attrs.category || "—";
+      const occasion = attrs.occasion || "—";
+      const colors = Array.isArray(attrs.colors) ? attrs.colors.join(", ") : (attrs.colors || "—");
+      const tags = Array.isArray(r.style_tags) ? r.style_tags : [];
+      const caption = r.caption || "";
+
+      const tile = document.createElement("div");
+      tile.className = "tile";
+
+      // Image section
+      if (filename) {
+        const img = document.createElement("img");
+        img.alt = category;
+        img.loading = "lazy";
+        img.onerror = function() {
+          const ph = document.createElement("div");
+          ph.className = "placeholder";
+          ph.textContent = "🧥";
+          this.parentNode.replaceChild(ph, this);
+        };
+        loadImageWithAuth(img, filename);
+        tile.appendChild(img);
+      } else {
+        const ph = document.createElement("div");
+        ph.className = "placeholder";
+        ph.textContent = "🧥";
+        tile.appendChild(ph);
+      }
+
+      // Body
+      const body = document.createElement("div");
+      body.className = "tile-body";
+
+      body.innerHTML = `
+        <div class="score">Score: ${score}</div>
+        <div class="meta-row"><span class="label">Category: </span>${esc(category)}</div>
+        <div class="meta-row"><span class="label">Occasion: </span>${esc(occasion)}</div>
+        <div class="meta-row"><span class="label">Colors: </span>${esc(colors)}</div>
+      `;
+
+      if (tags.length > 0) {
+        const tagsDiv = document.createElement("div");
+        tagsDiv.className = "tags";
+        tags.slice(0, 6).forEach(t => {
+          const span = document.createElement("span");
+          span.className = "tag";
+          span.textContent = t;
+          tagsDiv.appendChild(span);
+        });
+        body.appendChild(tagsDiv);
+      }
+
+      if (caption) {
+        const cap = document.createElement("div");
+        cap.className = "caption";
+        cap.textContent = caption.length > 120 ? caption.slice(0, 117) + "…" : caption;
+        body.appendChild(cap);
+      }
+
+      tile.appendChild(body);
+      grid.appendChild(tile);
+    });
+  }
+
+  // Fetch image with X-API-Key header, then blob-URL it into the img element
+  async function loadImageWithAuth(imgEl, filename) {
+    try {
+      const res = await fetch(`/v1/images/${encodeURIComponent(filename)}`, {
+        headers: { "X-API-Key": API_KEY }
+      });
+      if (!res.ok) throw new Error("not found");
+      const blob = await res.blob();
+      imgEl.src = URL.createObjectURL(blob);
+    } catch {
+      const ph = document.createElement("div");
+      ph.className = "placeholder";
+      ph.textContent = "🧥";
+      imgEl.parentNode && imgEl.parentNode.replaceChild(ph, imgEl);
+    }
+  }
+
+  async function ingestAll() {
+    const btn = document.getElementById("ingest-btn");
+    const ist = document.getElementById("ingest-status");
+
+    btn.disabled = true;
+    ist.className = "";
+    ist.textContent = "Running… this may take a few minutes";
+
+    try {
+      const res = await fetch("/v1/ingest/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
+        body: JSON.stringify({ mode: "full" })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+
+      // Fetch detailed stats now that the synchronous job has finished
+      const statusRes = await fetch(`/v1/ingest/status/${data.job_id}`, {
+        headers: { "X-API-Key": API_KEY }
+      });
+      const s = await statusRes.json();
+      const { processed = 0, total = 0, failed = 0, skipped = 0 } = s;
+      ist.className = failed > 0 && processed === 0 ? "error" : "success";
+      ist.textContent = `Done — ${processed} processed, ${skipped} skipped, ${failed} failed (${total} total)`;
+    } catch (err) {
+      ist.className = "error";
+      ist.textContent = "Error: " + err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function browseAll() {
+    const btn = document.getElementById("browse-btn");
+    const status = document.getElementById("status");
+    const grid = document.getElementById("grid");
+
+    btn.disabled = true;
+    status.className = "";
+    status.textContent = "Loading images…";
+    grid.innerHTML = "";
+
+    try {
+      const res = await fetch("/v1/images", { headers: { "X-API-Key": API_KEY } });
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      const filenames = data.filenames || [];
+      if (filenames.length === 0) {
+        status.textContent = "No images found in folder.";
+      } else {
+        status.textContent = `${filenames.length} images in folder`;
+        filenames.forEach(filename => {
+          const tile = document.createElement("div");
+          tile.className = "tile";
+
+          const img = document.createElement("img");
+          img.alt = filename;
+          img.loading = "lazy";
+          img.onerror = function() {
+            const ph = document.createElement("div");
+            ph.className = "placeholder";
+            ph.textContent = "🧥";
+            this.parentNode.replaceChild(ph, this);
+          };
+          loadImageWithAuth(img, filename);
+          tile.appendChild(img);
+
+          const body = document.createElement("div");
+          body.className = "tile-body";
+          body.innerHTML = `<div class="meta-row" style="word-break:break-all;">${esc(filename)}</div>`;
+          tile.appendChild(body);
+
+          grid.appendChild(tile);
+        });
+      }
+    } catch (err) {
+      status.className = "error";
+      status.textContent = "Error: " + err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+</script>
+
+</body>
+</html>
