@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from src.auth import verify_api_key
 from src.config import Settings, get_settings
 from src.ingestion import get_job_status, run_ingestion
-from src.pinecone_client import check_connection
+from src.pinecone_client import check_connection, delete_all_vectors, init_pinecone
 from src.schemas import (
     HealthResponse,
     IngestRequest,
@@ -120,6 +120,18 @@ async def ingest_status(job_id: str) -> IngestStatusResponse:
     return IngestStatusResponse(**job)
 
 
+@app.delete(
+    "/v1/pinecone/clear",
+    dependencies=[Depends(verify_api_key)],
+)
+async def clear_pinecone_index(
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    init_pinecone(settings.pinecone_api_key, settings.pinecone_index_name)
+    delete_all_vectors()
+    return {"status": "cleared", "message": "All vectors deleted from Pinecone index"}
+
+
 @app.post(
     "/v1/search",
     response_model=SearchResponse,
@@ -133,5 +145,6 @@ async def search(
         openai_api_key=settings.openai_api_key,
         pinecone_api_key=settings.pinecone_api_key,
         pinecone_index_name=settings.pinecone_index_name,
+        best_match_score_threshold=settings.best_match_score_threshold,
         request=request,
     )

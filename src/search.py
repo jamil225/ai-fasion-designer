@@ -32,6 +32,7 @@ def run_search(
     openai_api_key: str,
     pinecone_api_key: str,
     pinecone_index_name: str,
+    best_match_score_threshold: float,
     request: SearchRequest,
 ) -> SearchResponse:
     start_time = time.time()
@@ -43,8 +44,11 @@ def run_search(
     query_vector = generate_embedding(openai_api_key, request.query)
 
     logger.info(
-        "Search query='%s' strict_mode=%s top_k=%d",
-        request.query, request.strict_mode, request.top_k,
+        "Search query='%s' strict_mode=%s top_k=%d threshold=%.2f",
+        request.query,
+        request.strict_mode,
+        request.top_k,
+        best_match_score_threshold,
     )
 
     # Step 2: Build filters for strict mode
@@ -69,6 +73,9 @@ def run_search(
     # Step 4: Format results
     results: list[SearchResultItem] = []
     for item in raw_results:
+        if item["score"] <= best_match_score_threshold:
+            continue
+
         results.append(
             SearchResultItem(
                 product_id=item["product_id"],

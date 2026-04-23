@@ -11,7 +11,12 @@
       "WebFetch(domain:www.youtube.com)",
       "WebSearch",
       "WebFetch(domain:youtubetranscript.com)",
-      "WebFetch(domain:tactiq.io)"
+      "WebFetch(domain:tactiq.io)",
+      "WebFetch(domain:docs.ollama.com)",
+      "Bash(venv/bin/pip install:*)",
+      "Bash(venv/bin/python -c ':*)",
+      "Bash(venv/bin/python:*)",
+      "Bash(venv/bin/uvicorn src.main:app:*)"
     ]
   }
 }

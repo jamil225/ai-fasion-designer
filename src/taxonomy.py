@@ -174,11 +174,27 @@ def normalize_occasion(raw: str) -> str:
     return "casual"
 
 
+def normalize_gender(raw: str) -> str:
+    return raw.strip().lower()
+
+
+def normalize_season(raw: str) -> str:
+    return raw.strip().lower()
+
+
 def normalize_vision_output(raw: dict) -> dict:
     return {
+        # Core fields — full normalization via synonym maps
         "category": normalize_category(raw.get("category", "other")),
         "colors": normalize_colors(raw.get("colors", [])),
         "occasion": normalize_occasion(raw.get("occasion", "casual")),
         "style_tags": [tag.strip().lower() for tag in raw.get("style_tags", [])],
         "caption": raw.get("caption", "").strip(),
+        # Vision-only descriptive fields — passed through
+        "pattern": raw.get("pattern") or "",
+        "fabric_hint": raw.get("fabric_hint") or "",
+        # CSV-sourced fields — light normalize only (trusted vendor data)
+        "gender": normalize_gender(raw.get("gender", "")),
+        "product_display_name": raw.get("product_display_name", "").strip(),
+        "season": normalize_season(raw.get("season", "")),
     }

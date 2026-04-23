@@ -17,11 +17,22 @@ def build_embedding_text(metadata: dict) -> str:
     occasion = metadata.get("occasion", "")
     style_tags = ", ".join(metadata.get("style_tags", []))
     caption = metadata.get("caption", "")
+    gender = metadata.get("gender", "")
+    season = metadata.get("season", "")
+    pattern = metadata.get("pattern", "")
+    product_display_name = metadata.get("product_display_name", "")
 
-    return (
-        f"{category} in {colors} colors for {occasion} occasion. "
-        f"{style_tags}. {caption}"
-    )
+    parts = [
+        f"{gender} {category}".strip() if gender else category,
+        f"in {colors} colors" if colors else "",
+        f"for {occasion} occasion" if occasion else "",
+        f"season: {season}" if season else "",
+        f"pattern: {pattern}" if pattern else "",
+        style_tags if style_tags else "",
+        caption if caption else "",
+        product_display_name if product_display_name else "",
+    ]
+    return ". ".join(p for p in parts if p).strip()
 
 
 def generate_embedding(api_key: str, text: str) -> list[float]:

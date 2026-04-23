@@ -5,9 +5,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src.config import Settings
+from src.csv_loader import get_csv_row, load_csv_lookup
 from src.embeddings import build_embedding_text, generate_embedding
+from src.merge import merge_product_data
 from src.pinecone_client import hash_exists, init_pinecone, upsert_vector
 from src.schemas import FailedItem, IngestMode, IngestStatus
+from src.taxonomy import normalize_vision_output
 from src.vision import extract_metadata
 
 logger = logging.getLogger(__name__)
@@ -78,6 +81,13 @@ def run_ingestion(settings: Settings, mode: IngestMode) -> str:
         job_store[job_id]["finished_at"] = datetime.now(timezone.utc)
         return job_id
 
+    # Load vendor CSV once before processing images
+    csv_lookup = load_csv_lookup(settings.csv_file_path)
+    if not csv_lookup:
+        logger.warning(
+            "job_id=%s CSV lookup empty — all images will use vision-only path", job_id
+        )
+
     job_store[job_id]["total"] = len(images)
 
     for image_path in images:
@@ -97,17 +107,42 @@ def run_ingestion(settings: Settings, mode: IngestMode) -> str:
                 job_store[job_id]["skipped"] += 1
                 continue
 
-            # Step 1: Vision — extract structured metadata from image
-            metadata = extract_metadata(settings.gemini_api_key, image_path)
+            # Stage 1: Vision — raw visual analysis from Gemini
+            vision_output = extract_metadata(
+                api_key=settings.gemini_api_key,
+                image_path=image_path,
+                model_name=settings.vision_model_name,
+            )
+
+            # Stage 2: Merge — combine vision with vendor CSV (CSV corrects factual fields)
+            csv_row = get_csv_row(csv_lookup, image_path)
+            merged_output = merge_product_data(
+                api_key=settings.gemini_api_key,
+                model_name=settings.merge_model_name,
+                vision_output=vision_output,
+                csv_row=csv_row,
+            )
+
+            # Inject CSV-only fields directly — gender never comes from the LLM
+            merged_output["gender"] = csv_row.get("gender", "") if csv_row else ""
+            merged_output["product_display_name"] = csv_row.get("productDisplayName", "") if csv_row else ""
+            merged_output["season"] = csv_row.get("season", "") if csv_row else ""
+
+            # Normalize taxonomy fields on the merged output
+            metadata = normalize_vision_output(merged_output)
+
+            # Attach pipeline fields
+            metadata["raw_vision_output"] = vision_output.get("raw_vision_output", "")
+            metadata["model_version"] = vision_output.get("model_version", "")
             metadata["file_hash"] = file_hash
             metadata["image_path"] = filename
             metadata["product_id"] = str(uuid.uuid4())
             metadata["ingested_at"] = datetime.now(timezone.utc).isoformat()
 
             logger.info(
-                "job_id=%s product_id=%s Vision: category=%s colors=%s occasion=%s",
+                "job_id=%s product_id=%s Merged: category=%s colors=%s occasion=%s gender=%s",
                 job_id, metadata["product_id"], metadata["category"],
-                metadata["colors"], metadata["occasion"],
+                metadata["colors"], metadata["occasion"], metadata.get("gender", ""),
             )
 
             # Step 2: Embed — construct text and generate embedding vector

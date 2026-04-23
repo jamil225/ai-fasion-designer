@@ -56,6 +56,10 @@ def upsert_vector(
         "raw_vision_output": metadata["raw_vision_output"],
         "model_version": metadata["model_version"],
         "ingested_at": metadata["ingested_at"],
+        # Enriched fields from vendor CSV
+        "gender": metadata.get("gender", ""),
+        "product_display_name": metadata.get("product_display_name", ""),
+        "season": metadata.get("season", ""),
     }
 
     last_error: Exception | None = None
@@ -111,6 +115,13 @@ def query_vectors(
         results.append(result)
 
     return results
+
+
+def delete_all_vectors() -> None:
+    """Delete all vectors from the Pinecone index."""
+    index = get_index()
+    index.delete(delete_all=True)
+    logger.info("Deleted all vectors from Pinecone index")
 
 
 def hash_exists(file_hash: str) -> bool:

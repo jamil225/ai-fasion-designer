@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import time
@@ -5,30 +6,21 @@ from pathlib import Path
 
 from google import genai
 
-from src.taxonomy import normalize_vision_output
-
 logger = logging.getLogger(__name__)
 
-VISION_PROMPT = """Analyze this garment image and return a JSON object with:
+VISION_PROMPT = """Analyze this garment image and return a JSON object with exactly these fields:
 - category: one of [dress, saree, shirt, blazer, trousers, skirt, shoes, jacket, kurta, lehenga, gown, top, other]
 - colors: array of dominant colors from [red, blue, green, yellow, black, white, pink, purple, orange, gold, silver, beige, brown, maroon, navy, grey, multicolor]
 - occasion: one of [wedding, party, casual, formal, festive, office, traditional]
 - style_tags: array of 3-5 descriptive tags (e.g. embroidered, floral, silk, vintage, modern)
-- caption: one-line description of the garment Focus on the clothes not on the model wearing it details.
+- caption: one-line description of the garment. Focus on the clothes, not the model wearing them.
+- pattern: visual pattern if visible (e.g. solid, striped, checked, floral, printed) or null
+- fabric_hint: visible fabric type if identifiable (e.g. cotton, denim, silk, wool, synthetic) or null
 
 Return ONLY valid JSON, no other text."""
 
 MAX_RETRIES = 3
 BACKOFF_SECONDS = [1, 2, 4]
-
-
-def _analyze_image(client: genai.Client, image_path: Path) -> str:
-    uploaded_file = client.files.upload(file=image_path)
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=[VISION_PROMPT, uploaded_file],
-    )
-    return response.text
 
 
 def _parse_vision_response(raw_text: str) -> dict:
@@ -42,30 +34,44 @@ def _parse_vision_response(raw_text: str) -> dict:
     return json.loads(cleaned.strip())
 
 
-def extract_metadata(api_key: str, image_path: Path) -> dict:
+def extract_metadata(
+    api_key: str,
+    image_path: Path,
+    model_name: str,
+) -> dict:
+    """Call Gemini vision model to extract raw visual metadata from an image."""
     client = genai.Client(api_key=api_key)
+
+    image_bytes = image_path.read_bytes()
+    image_part = genai.types.Part.from_bytes(
+        data=image_bytes,
+        mime_type=f"image/{image_path.suffix.lstrip('.').replace('jpg', 'jpeg')}",
+    )
 
     last_error: Exception | None = None
     for attempt in range(MAX_RETRIES):
         try:
-            raw_text = _analyze_image(client, image_path)
+            response = client.models.generate_content(
+                model=model_name,
+                contents=[image_part, VISION_PROMPT],
+            )
+            raw_text = response.text
             parsed = _parse_vision_response(raw_text)
-            normalized = normalize_vision_output(parsed)
-            normalized["raw_vision_output"] = raw_text
-            normalized["model_version"] = "gemini-2.5-flash"
+            parsed["raw_vision_output"] = raw_text
+            parsed["model_version"] = model_name
 
             logger.info(
                 "Vision extraction succeeded for %s: category=%s colors=%s",
                 image_path.name,
-                normalized["category"],
-                normalized["colors"],
+                parsed.get("category"),
+                parsed.get("colors"),
             )
-            return normalized
+            return parsed
 
         except json.JSONDecodeError as e:
             last_error = e
             logger.warning(
-                "Attempt %d/%d: Failed to parse Gemini response for %s: %s",
+                "Attempt %d/%d: Failed to parse vision response for %s: %s",
                 attempt + 1, MAX_RETRIES, image_path.name, e,
             )
         except Exception as e:
