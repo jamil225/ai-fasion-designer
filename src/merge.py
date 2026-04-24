@@ -79,6 +79,8 @@ def merge_product_data(
             )
             raw_text = response.text
             merged = _parse_merge_response(raw_text)
+            # Pass through vision wear_type for three-tier resolution in ingestion
+            merged["vision_wear_type"] = vision_output.get("wear_type")
             logger.info(
                 "Merge succeeded: product=%s category=%s colors=%s",
                 csv_row.get("productDisplayName", "unknown"),
@@ -133,4 +135,5 @@ def _vision_only_fallback(vision_output: dict) -> dict:
         "caption": vision_output.get("caption", ""),
         "pattern": vision_output.get("pattern") or "",
         "fabric_hint": vision_output.get("fabric_hint") or "",
+        "vision_wear_type": vision_output.get("wear_type"),
     }

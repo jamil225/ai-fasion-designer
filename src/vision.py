@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 VISION_PROMPT = """Analyze this garment image and return a JSON object with exactly these fields:
 - category: one of [dress, saree, shirt, blazer, trousers, skirt, shoes, jacket, kurta, lehenga, gown, top, other]
+- wear_type: one of [topwear, bottomwear, full_body, accessory] — classify as topwear (shirts, blazers, jackets, tops, kurtas), bottomwear (trousers, skirts), full_body (dresses, sarees, lehengas, gowns), or accessory (shoes, bags, other)
 - colors: array of dominant colors from [red, blue, green, yellow, black, white, pink, purple, orange, gold, silver, beige, brown, maroon, navy, grey, multicolor]
 - occasion: one of [wedding, party, casual, formal, festive, office, traditional]
 - style_tags: array of 3-5 descriptive tags (e.g. embroidered, floral, silk, vintage, modern)

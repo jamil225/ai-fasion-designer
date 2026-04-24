@@ -1,11 +1,12 @@
 import logging
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Security
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.auth import verify_api_key
+from src.auth import verify_auth
+from src.auth_routes import router as auth_router
 from src.config import Settings, get_settings
 from src.ingestion import get_job_status, run_ingestion
 from src.pinecone_client import check_connection, delete_all_vectors, init_pinecone
@@ -17,8 +18,11 @@ from src.schemas import (
     IngestStatusResponse,
     SearchRequest,
     SearchResponse,
+    StyledSearchRequest,
+    StyledSearchResponse,
 )
 from src.search import run_search
+from src.styled_search import run_styled_search
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,6 +39,7 @@ app = FastAPI(
 _static_dir = Path(__file__).parent / "static"
 _static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+app.include_router(auth_router)
 
 
 @app.get("/", include_in_schema=False)
@@ -45,7 +50,7 @@ async def root() -> RedirectResponse:
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 
-@app.get("/v1/images", dependencies=[Security(verify_api_key)])
+@app.get("/v1/images", dependencies=[Depends(verify_auth)])
 async def list_images(settings: Settings = Depends(get_settings)) -> dict:
     folder = Path(settings.image_folder_path)
     if not folder.exists():
@@ -57,7 +62,7 @@ async def list_images(settings: Settings = Depends(get_settings)) -> dict:
     return {"filenames": filenames}
 
 
-@app.get("/v1/images/{filename}", dependencies=[Security(verify_api_key)])
+@app.get("/v1/images/{filename}", dependencies=[Depends(verify_auth)])
 async def serve_image(
     filename: str, settings: Settings = Depends(get_settings)
 ) -> FileResponse:
@@ -86,7 +91,7 @@ async def health(settings: Settings = Depends(get_settings)) -> HealthResponse:
 @app.post(
     "/v1/ingest/start",
     response_model=IngestResponse,
-    dependencies=[Depends(verify_api_key)],
+    dependencies=[Depends(verify_auth)],
 )
 async def ingest_start(
     request: IngestRequest,
@@ -111,7 +116,7 @@ async def ingest_start(
 @app.get(
     "/v1/ingest/status/{job_id}",
     response_model=IngestStatusResponse,
-    dependencies=[Depends(verify_api_key)],
+    dependencies=[Depends(verify_auth)],
 )
 async def ingest_status(job_id: str) -> IngestStatusResponse:
     job = get_job_status(job_id)
@@ -122,7 +127,7 @@ async def ingest_status(job_id: str) -> IngestStatusResponse:
 
 @app.delete(
     "/v1/pinecone/clear",
-    dependencies=[Depends(verify_api_key)],
+    dependencies=[Depends(verify_auth)],
 )
 async def clear_pinecone_index(
     settings: Settings = Depends(get_settings),
@@ -135,7 +140,7 @@ async def clear_pinecone_index(
 @app.post(
     "/v1/search",
     response_model=SearchResponse,
-    dependencies=[Depends(verify_api_key)],
+    dependencies=[Depends(verify_auth)],
 )
 async def search(
     request: SearchRequest,
@@ -148,3 +153,15 @@ async def search(
         best_match_score_threshold=settings.best_match_score_threshold,
         request=request,
     )
+
+
+@app.post(
+    "/v1/search/styled",
+    response_model=StyledSearchResponse,
+    dependencies=[Depends(verify_auth)],
+)
+async def styled_search(
+    request: StyledSearchRequest,
+    settings: Settings = Depends(get_settings),
+) -> StyledSearchResponse:
+    return run_styled_search(settings=settings, request=request)

@@ -1,15 +1,91 @@
-from fastapi import Depends, HTTPException, Security
+import logging
+from datetime import datetime, timezone, timedelta
+
+import jwt
+from fastapi import Depends, HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 
 from src.config import Settings, get_settings
 
+logger = logging.getLogger(__name__)
+
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
 
+SESSION_COOKIE_NAME = "session"
+SESSION_MAX_AGE_SECONDS = 3600  # 1 hour
 
-async def verify_api_key(
+
+def verify_google_id_token(credential: str, google_client_id: str) -> dict:
+    """Verify a Google ID token and return user info (email, name, picture).
+
+    Called once during login, not on every request.
+    """
+    try:
+        id_info = google_id_token.verify_oauth2_token(
+            credential,
+            google_requests.Request(),
+            google_client_id,
+        )
+        return {
+            "email": id_info["email"],
+            "name": id_info.get("name", ""),
+            "picture": id_info.get("picture", ""),
+        }
+    except ValueError as e:
+        logger.warning("Google token verification failed (ValueError): %s", e)
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
+    except Exception as e:
+        logger.warning("Google token verification failed (%s): %s", type(e).__name__, e)
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {e}")
+
+
+def create_session_token(user_info: dict, session_secret: str) -> str:
+    """Sign a short-lived JWT containing user display info."""
+    payload = {
+        "email": user_info["email"],
+        "name": user_info["name"],
+        "picture": user_info["picture"],
+        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(timezone.utc) + timedelta(seconds=SESSION_MAX_AGE_SECONDS),
+    }
+    return jwt.encode(payload, session_secret, algorithm="HS256")
+
+
+def verify_session_token(token: str, session_secret: str) -> dict:
+    """Verify our own signed session JWT. Returns user info or None."""
+    try:
+        payload = jwt.decode(token, session_secret, algorithms=["HS256"])
+        return {
+            "email": payload["email"],
+            "name": payload.get("name", ""),
+            "picture": payload.get("picture", ""),
+        }
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+
+async def verify_auth(
+    request: Request,
     api_key: str | None = Security(API_KEY_HEADER),
     settings: Settings = Depends(get_settings),
 ) -> str:
-    if not api_key or api_key != settings.app_api_key:
-        raise HTTPException(status_code=401, detail="Invalid or missing API key")
-    return api_key
+    """Dual auth: try session cookie first, then fall back to API key.
+
+    Returns the user identifier (email or 'api-key-user').
+    """
+    # 1. Try HttpOnly session cookie
+    session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    if session_token and settings.session_secret:
+        user_info = verify_session_token(session_token, settings.session_secret)
+        if user_info:
+            return user_info["email"]
+
+    # 2. Fall back to API key (for Swagger / programmatic access)
+    if api_key and api_key == settings.app_api_key:
+        return "api-key-user"
+
+    raise HTTPException(status_code=401, detail="Authentication required")

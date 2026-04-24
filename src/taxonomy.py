@@ -17,6 +17,31 @@ COLORS = {
     "multicolor",
 }
 
+WEAR_TYPES = {"topwear", "bottomwear", "full_body", "accessory"}
+
+# Tier 3 fallback: category → wear_type mapping
+WEAR_TYPE_MAP: dict[str, str] = {
+    "shirt": "topwear",
+    "blazer": "topwear",
+    "jacket": "topwear",
+    "top": "topwear",
+    "kurta": "topwear",
+    "trousers": "bottomwear",
+    "skirt": "bottomwear",
+    "dress": "full_body",
+    "saree": "full_body",
+    "lehenga": "full_body",
+    "gown": "full_body",
+    "shoes": "accessory",
+    "other": "accessory",
+}
+
+# Tier 1: CSV subCategory values (title-cased in CSV) → canonical wear_type
+SUBCATEGORY_WEAR_TYPE_MAP: dict[str, str] = {
+    "topwear": "topwear",
+    "bottomwear": "bottomwear",
+}
+
 # Synonyms mapped to canonical color values
 COLOR_SYNONYMS: dict[str, str] = {
     "crimson": "red",
@@ -180,6 +205,32 @@ def normalize_gender(raw: str) -> str:
 
 def normalize_season(raw: str) -> str:
     return raw.strip().lower()
+
+
+def normalize_wear_type(
+    csv_sub_category: str | None,
+    vision_wear_type: str | None,
+    category: str,
+) -> str:
+    # Tier 1: CSV subCategory (most trusted — vendor ground truth)
+    if csv_sub_category:
+        lowered = csv_sub_category.strip().lower()
+        if lowered in SUBCATEGORY_WEAR_TYPE_MAP:
+            return SUBCATEGORY_WEAR_TYPE_MAP[lowered]
+
+    # Tier 2: Vision LLM extraction
+    if vision_wear_type:
+        lowered = vision_wear_type.strip().lower()
+        if lowered in WEAR_TYPES:
+            return lowered
+
+    # Tier 3: Category mapping fallback (deterministic)
+    mapped = WEAR_TYPE_MAP.get(category, "accessory")
+    logger.info(
+        "wear_type resolved via category mapping: category=%s → %s",
+        category, mapped,
+    )
+    return mapped
 
 
 def normalize_vision_output(raw: dict) -> dict:

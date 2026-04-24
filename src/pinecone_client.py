@@ -60,6 +60,8 @@ def upsert_vector(
         "gender": metadata.get("gender", ""),
         "product_display_name": metadata.get("product_display_name", ""),
         "season": metadata.get("season", ""),
+        # Wear type classification (three-tier: CSV → Vision → category mapping)
+        "wear_type": metadata.get("wear_type", ""),
     }
 
     last_error: Exception | None = None
@@ -111,6 +113,10 @@ def query_vectors(
             "occasion": match.metadata.get("occasion", ""),
             "style_tags": match.metadata.get("style_tags", []),
             "caption": match.metadata.get("caption", ""),
+            "gender": match.metadata.get("gender", ""),
+            "product_display_name": match.metadata.get("product_display_name", ""),
+            "season": match.metadata.get("season", ""),
+            "wear_type": match.metadata.get("wear_type", ""),
         }
         results.append(result)
 

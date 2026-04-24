@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     vision_model_name: str = "gemini-2.5-flash-lite"
     # Merge model (text-only, can use same cheap model)
     merge_model_name: str = "gemini-2.5-flash-lite"
+    # Search enrichment agent (query expansion before vector search)
+    search_enrichment_model_name: str = "gemini-2.5-flash"
+    # Stylist agent (outfit curation from vector results)
+    stylist_model_name: str = "gemini-2.5-pro"
 
     # OpenAI (embeddings only)
     openai_api_key: str = ""
@@ -42,6 +46,10 @@ class Settings(BaseSettings):
     csv_file_path: str = ""
     default_top_k: int = 10
     best_match_score_threshold: float = _load_best_match_score_threshold()
+
+    # Google OAuth
+    google_client_id: str = ""
+    session_secret: str = ""
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "populate_by_name": True, "extra": "ignore"}
 
