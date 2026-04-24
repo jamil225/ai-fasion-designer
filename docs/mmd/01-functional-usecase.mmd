@@ -1,0 +1,29 @@
+flowchart LR
+    subgraph ONE["**1. INGEST**"]
+        direction TB
+        IMG["Fashion Images<br/>+ Vendor CSV"]
+        AI1["Gemini Vision<br/>extracts metadata"]
+        VEC["OpenAI creates<br/>vector embedding"]
+        DB[("Pinecone<br/>Vector DB")]
+        IMG --> AI1 --> VEC --> DB
+    end
+
+    subgraph TWO["**2. SEARCH**"]
+        direction TB
+        USR["User types:<br/><i>'Golden wedding look'</i>"]
+        AGT1["Vector Search Agent<br/><small>Gemini Flash</small><br/>enriches query"]
+        PC[("Pinecone<br/>finds similar items")]
+        AGT2["Stylist Agent<br/><small>Gemini Pro</small><br/>pairs outfits"]
+        OUT["Matched Outfit Combos<br/><small>Top + Bottom + Rationale</small>"]
+        USR --> AGT1 --> PC --> AGT2 --> OUT
+    end
+
+    ONE ~~~ TWO
+
+    style ONE fill:#f0f7ff,stroke:#0071e3,stroke-width:2px
+    style TWO fill:#fff7f0,stroke:#e36500,stroke-width:2px
+    style DB fill:#e8f5e9,stroke:#2e7d32
+    style PC fill:#e8f5e9,stroke:#2e7d32
+    style AGT1 fill:#fff3e0,stroke:#e65100
+    style AGT2 fill:#fce4ec,stroke:#c62828
+    style AI1 fill:#fff3e0,stroke:#e65100

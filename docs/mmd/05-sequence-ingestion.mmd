@@ -1,0 +1,59 @@
+sequenceDiagram
+    actor Admin
+    participant API as FastAPI
+    participant ING as Ingestion<br/>Pipeline
+    participant FS as File System
+    participant CSV as CSV Loader
+    participant GV as Gemini Vision<br/>(Flash Lite)
+    participant GM as Gemini Merge<br/>(Flash Lite)
+    participant TAX as Taxonomy<br/>Normalizer
+    participant OAI as OpenAI<br/>Embeddings
+    participant PC as Pinecone
+
+    Admin->>API: POST /v1/ingest/start<br/>{"mode": "full"}
+    API->>ING: run_ingestion(settings, mode)
+
+    ING->>PC: init_pinecone()
+    ING->>FS: scan_image_folder()
+    FS-->>ING: [image1.jpg, image2.jpg, ...]
+    ING->>CSV: load_csv_lookup(csv_path)
+    CSV-->>ING: {image_id: {gender, subCategory, ...}}
+
+    loop For each image
+        ING->>ING: compute_file_hash(SHA-256)
+
+        opt Incremental mode
+            ING->>PC: hash_exists(file_hash)?
+            PC-->>ING: true/false
+            Note over ING: Skip if already ingested
+        end
+
+        rect rgb(240, 247, 255)
+            Note over ING,PC: Processing Pipeline
+
+            ING->>GV: extract_metadata(image)
+            GV-->>ING: {category, wear_type, colors,<br/>occasion, style_tags, caption,<br/>pattern, fabric_hint}
+
+            ING->>CSV: get_csv_row(image_id)
+            CSV-->>ING: {gender, subCategory,<br/>articleType, baseColour, ...}
+
+            ING->>GM: merge_product_data(vision, csv)
+            Note over GM: CSV corrects factual fields<br/>Vision provides descriptive fields
+            GM-->>ING: merged metadata<br/>+ vision_wear_type
+
+            ING->>TAX: normalize_vision_output(merged)
+            TAX-->>ING: normalized metadata
+
+            ING->>TAX: normalize_wear_type(<br/>csv.subCategory,<br/>vision_wear_type,<br/>category)
+            Note over TAX: Tier 1: CSV subCategory<br/>Tier 2: Vision LLM<br/>Tier 3: Category mapping
+            TAX-->>ING: "topwear" | "bottomwear" | "full_body"
+
+            ING->>OAI: generate_embedding(text)
+            OAI-->>ING: float[1536]
+
+            ING->>PC: upsert_vector(id, vector,<br/>metadata + wear_type)
+        end
+    end
+
+    ING-->>API: job_id (completed)
+    API-->>Admin: {job_id, status, processed, failed}

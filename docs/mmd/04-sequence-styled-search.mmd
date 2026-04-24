@@ -1,0 +1,41 @@
+sequenceDiagram
+    actor User
+    participant UI as Web UI
+    participant API as FastAPI
+    participant QE as Query Enrichment<br/>(Gemini Flash)
+    participant OAI as OpenAI<br/>Embeddings
+    participant PC as Pinecone
+    participant SA as Stylist Agent<br/>(Gemini Pro)
+
+    User->>UI: "Golden wedding look"
+    UI->>API: POST /v1/search/styled<br/>{"query": "Golden wedding look", "combo_count": 3}
+    API->>API: verify_auth (X-API-Key)
+
+    rect rgb(255, 247, 240)
+        Note over API,SA: Styled Search Pipeline (styled_search.py)
+
+        API->>QE: enrich_query("Golden wedding look")
+        QE-->>API: "elegant gold festive wedding formal<br/>kurta blazer trousers lehenga saree<br/>silk embroidered traditional..."
+
+        API->>OAI: generate_embedding(enriched_query)
+        OAI-->>API: float[1536]
+
+        API->>PC: query_vectors(vector, top_k=20)
+        PC-->>API: 20 results with metadata<br/>(product_id, category, colors,<br/>wear_type, gender, score...)
+
+        API->>API: Filter by score threshold (0.20)<br/>15 results remain
+
+        API->>SA: curate_outfits(<br/>original_query,<br/>15 products,<br/>combo_count=3)
+
+        Note over SA: Applies 5 pairing rules:<br/>1. Gender consistency<br/>2. Color harmony<br/>3. Occasion coherence<br/>4. Season alignment<br/>5. Style coherence
+
+        SA-->>API: {combos: [{top_id, bottom_id,<br/>rationale}...],<br/>standalone_outfits: [...]}
+
+        API->>API: Validate product_ids<br/>Prevent duplicates<br/>Resolve to full metadata
+    end
+
+    API-->>UI: StyledSearchResponse<br/>{combos, standalone_outfits,<br/>query_enrichment, latency_ms}
+
+    UI->>UI: Render combo cards<br/>[Top Image] + [Bottom Image]<br/>+ Styling Rationale
+
+    UI-->>User: Outfit combinations displayed

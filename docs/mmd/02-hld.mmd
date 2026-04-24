@@ -1,0 +1,63 @@
+flowchart TB
+    subgraph CLIENT["Client Layer"]
+        UI["Web UI<br/><small>index.html</small>"]
+        SWAGGER["Swagger /docs"]
+    end
+
+    subgraph API["FastAPI Application"]
+        direction TB
+        AUTH["Auth Middleware<br/><small>X-API-Key / Google OAuth</small>"]
+        ROUTES["API Routes<br/><small>/v1/health<br/>/v1/ingest/start<br/>/v1/search<br/>/v1/search/styled</small>"]
+        AUTH --> ROUTES
+    end
+
+    subgraph INGEST_PIPE["Ingestion Pipeline"]
+        direction LR
+        SCAN["Folder Scanner<br/>+ Dedup"]
+        VISION["Vision Extractor<br/><small>Gemini Flash Lite</small>"]
+        MERGE["CSV Merger<br/><small>Gemini Flash Lite</small>"]
+        TAXO["Taxonomy<br/>Normalizer"]
+        EMBED_I["Embedding<br/>Generator"]
+        SCAN --> VISION --> MERGE --> TAXO --> EMBED_I
+    end
+
+    subgraph SEARCH_PIPE["Styled Search Pipeline"]
+        direction LR
+        ENRICH["Query Enrichment<br/><small>Gemini Flash</small>"]
+        EMBED_S["Embedding<br/>Generator"]
+        VECTOR["Vector Search"]
+        STYLIST["Stylist Agent<br/><small>Gemini Pro</small>"]
+        RESOLVE["Result Resolver<br/>+ Validator"]
+        ENRICH --> EMBED_S --> VECTOR --> STYLIST --> RESOLVE
+    end
+
+    subgraph EXTERNAL["External Services"]
+        GEMINI["Google Gemini API<br/><small>Flash Lite / Flash / Pro</small>"]
+        OPENAI["OpenAI API<br/><small>text-embedding-3-small</small>"]
+        PINE[("Pinecone<br/><small>fashion-rag index<br/>1536 dimensions<br/>cosine similarity</small>")]
+    end
+
+    subgraph DATA["Data Sources"]
+        IMAGES["Image Folder<br/><small>jpg, png, webp</small>"]
+        CSV["Vendor CSV<br/><small>gender, subCategory<br/>articleType, baseColour</small>"]
+        ENV[".env Config<br/><small>API keys, paths</small>"]
+    end
+
+    CLIENT --> API
+    ROUTES --> INGEST_PIPE
+    ROUTES --> SEARCH_PIPE
+    INGEST_PIPE --> GEMINI
+    INGEST_PIPE --> OPENAI
+    INGEST_PIPE --> PINE
+    SEARCH_PIPE --> GEMINI
+    SEARCH_PIPE --> OPENAI
+    SEARCH_PIPE --> PINE
+    DATA --> INGEST_PIPE
+
+    style CLIENT fill:#f5f5f7,stroke:#8e8e93
+    style API fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style INGEST_PIPE fill:#f0f7ff,stroke:#0071e3
+    style SEARCH_PIPE fill:#fff7f0,stroke:#e36500
+    style EXTERNAL fill:#f3e5f5,stroke:#7b1fa2
+    style PINE fill:#e8f5e9,stroke:#2e7d32
+    style DATA fill:#fff8e1,stroke:#f9a825
