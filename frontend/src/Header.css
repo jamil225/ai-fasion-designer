@@ -1,0 +1,67 @@
+.app-header {
+  padding: var(--space-lg) var(--space-xl) var(--space-xl);
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.header-brand {
+  text-align: center;
+  padding-top: var(--space-xl);
+}
+
+.header-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.logo-mark {
+  margin-bottom: var(--space-md);
+}
+
+.logo-icon {
+  font-size: 2.2rem;
+  background: var(--accent-gradient-warm);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: brightness(1.2);
+}
+
+.header-title {
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.title-accent {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-tertiary);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    padding: var(--space-md) var(--space-md) var(--space-lg);
+  }
+
+  .header-title {
+    font-size: 1.8rem;
+  }
+}
