@@ -100,6 +100,180 @@
     #ingest-status.error { color: #d93025; }
     #ingest-status.success { color: #1a8f3c; }
 
+    /* Search mode toggle */
+    .mode-toggle {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      max-width: 640px;
+      margin: 0 auto 1rem;
+    }
+
+    .mode-toggle button {
+      padding: 0.45rem 1.25rem;
+      border: 1px solid #d2d2d7;
+      background: #fff;
+      color: #6e6e73;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .mode-toggle button:first-child {
+      border-radius: 8px 0 0 8px;
+      border-right: none;
+    }
+
+    .mode-toggle button:last-child {
+      border-radius: 0 8px 8px 0;
+    }
+
+    .mode-toggle button.active {
+      background: #0071e3;
+      border-color: #0071e3;
+      color: #fff;
+    }
+
+    .combo-options {
+      max-width: 640px;
+      margin: 0 auto 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: #6e6e73;
+    }
+
+    .combo-options input[type="number"] {
+      width: 50px;
+      padding: 0.3rem;
+      border: 1px solid #d2d2d7;
+      border-radius: 6px;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+
+    .enrichment-bar {
+      max-width: 900px;
+      margin: 0 auto 1rem;
+      padding: 0.75rem 1rem;
+      background: #e8f4fd;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      color: #1d1d1f;
+    }
+
+    .enrichment-bar .label { color: #0071e3; font-weight: 600; }
+
+    /* Combo cards */
+    .combo-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      max-width: 520px;
+      margin: 0 auto 1.5rem;
+      overflow: hidden;
+    }
+
+    .combo-header {
+      background: #f2f2f7;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #3a3a3c;
+    }
+
+    .combo-items {
+      display: flex;
+      align-items: stretch;
+    }
+
+    .combo-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .combo-item img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      background: #e5e5ea;
+    }
+
+    .combo-item .placeholder {
+      width: 100%;
+      height: 200px;
+      background: #e5e5ea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+    }
+
+    .combo-item-body {
+      padding: 0.5rem 0.65rem;
+      font-size: 0.72rem;
+    }
+
+    .combo-plus {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #0071e3;
+      width: 36px;
+      flex-shrink: 0;
+    }
+
+    .combo-rationale {
+      padding: 0.65rem 0.75rem;
+      font-size: 0.78rem;
+      color: #3a3a3c;
+      border-top: 1px solid #f2f2f7;
+      line-height: 1.5;
+      font-style: italic;
+    }
+
+    .section-label {
+      max-width: 520px;
+      margin: 1.5rem auto 0.75rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #1d1d1f;
+    }
+
+    .standalone-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      max-width: 280px;
+      margin: 0 auto 1rem;
+      overflow: hidden;
+    }
+
+    .standalone-card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      background: #e5e5ea;
+    }
+
+    .standalone-body {
+      padding: 0.65rem 0.75rem;
+    }
+
+    .standalone-rationale {
+      font-size: 0.75rem;
+      color: #3a3a3c;
+      font-style: italic;
+      border-top: 1px solid #f2f2f7;
+      padding-top: 0.4rem;
+      margin-top: 0.3rem;
+      line-height: 1.4;
+    }
+
     #status {
       text-align: center;
       font-size: 0.8rem;
@@ -205,10 +379,19 @@
   <p>Vision-first garment search powered by Gemini + Pinecone</p>
 </header>
 
+<div class="mode-toggle">
+  <button id="mode-standard" class="active" onclick="setMode('standard')">Standard Search</button>
+  <button id="mode-styled" onclick="setMode('styled')">Styled Search</button>
+</div>
+
 <div class="search-bar">
   <input type="text" id="query" placeholder="e.g. red wedding dress, casual blue jacket..." />
-  <button id="btn" onclick="search()">Search</button>
+  <button id="btn" onclick="doSearch()">Search</button>
   <button id="browse-btn" onclick="browseAll()" style="background:#6e6e73;">Browse All</button>
+</div>
+
+<div class="combo-options" id="combo-options" style="display:none;">
+  <label>Combos: <input type="number" id="combo-count" value="3" min="1" max="10" /></label>
 </div>
 
 <div class="ingest-bar">
@@ -221,9 +404,25 @@
 
 <script>
   const API_KEY = "test-key-123";  // local dev only
+  let searchMode = "standard";
+
+  function setMode(mode) {
+    searchMode = mode;
+    document.getElementById("mode-standard").className = mode === "standard" ? "active" : "";
+    document.getElementById("mode-styled").className = mode === "styled" ? "active" : "";
+    document.getElementById("combo-options").style.display = mode === "styled" ? "flex" : "none";
+  }
+
+  function doSearch() {
+    if (searchMode === "styled") {
+      styledSearch();
+    } else {
+      search();
+    }
+  }
 
   document.getElementById("query").addEventListener("keydown", e => {
-    if (e.key === "Enter") search();
+    if (e.key === "Enter") doSearch();
   });
 
   async function search() {
@@ -445,6 +644,186 @@
     } finally {
       btn.disabled = false;
     }
+  }
+
+  async function styledSearch() {
+    const query = document.getElementById("query").value.trim();
+    if (!query) return;
+
+    const btn = document.getElementById("btn");
+    const status = document.getElementById("status");
+    const grid = document.getElementById("grid");
+    const comboCount = parseInt(document.getElementById("combo-count").value) || 3;
+
+    btn.disabled = true;
+    status.className = "";
+    status.textContent = "Searching with stylist agent… this may take a few seconds";
+    grid.innerHTML = "";
+
+    try {
+      const res = await fetch("/v1/search/styled", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": API_KEY
+        },
+        body: JSON.stringify({ query, combo_count: comboCount, top_k: 20 })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || res.statusText);
+      }
+
+      const data = await res.json();
+      const combos = data.combos || [];
+      const standalone = data.standalone_outfits || [];
+
+      if (combos.length === 0 && standalone.length === 0) {
+        status.textContent = "No outfit combinations found.";
+      } else {
+        status.textContent = `${combos.length} combos, ${standalone.length} standalone · ${data.total_results_from_vector} vector results · ${data.latency_ms}ms`;
+        renderStyledResults(data);
+      }
+    } catch (err) {
+      status.className = "error";
+      status.textContent = "Error: " + err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderStyledResults(data) {
+    const grid = document.getElementById("grid");
+    grid.innerHTML = "";
+
+    // Show enrichment info
+    if (data.query_enrichment) {
+      const bar = document.createElement("div");
+      bar.className = "enrichment-bar";
+      bar.innerHTML = `<span class="label">Enriched query:</span> ${esc(data.query_enrichment.enriched_query)}`;
+      grid.appendChild(bar);
+    }
+
+    // Combos
+    if (data.combos && data.combos.length > 0) {
+      const label = document.createElement("div");
+      label.className = "section-label";
+      label.textContent = "Outfit Combinations";
+      grid.appendChild(label);
+
+      data.combos.forEach(combo => {
+        const card = document.createElement("div");
+        card.className = "combo-card";
+
+        card.innerHTML = `<div class="combo-header">Combo #${combo.combo_rank}</div>`;
+
+        const items = document.createElement("div");
+        items.className = "combo-items";
+
+        // Top item
+        const topEl = buildComboItem(combo.top, "Top");
+        items.appendChild(topEl);
+
+        // Plus sign
+        const plus = document.createElement("div");
+        plus.className = "combo-plus";
+        plus.textContent = "+";
+        items.appendChild(plus);
+
+        // Bottom item
+        const bottomEl = buildComboItem(combo.bottom, "Bottom");
+        items.appendChild(bottomEl);
+
+        card.appendChild(items);
+
+        // Rationale
+        if (combo.styling_rationale) {
+          const rat = document.createElement("div");
+          rat.className = "combo-rationale";
+          rat.textContent = combo.styling_rationale;
+          card.appendChild(rat);
+        }
+
+        grid.appendChild(card);
+      });
+    }
+
+    // Standalone outfits
+    if (data.standalone_outfits && data.standalone_outfits.length > 0) {
+      const label = document.createElement("div");
+      label.className = "section-label";
+      label.textContent = "Standalone Outfits";
+      grid.appendChild(label);
+
+      const standaloneGrid = document.createElement("div");
+      standaloneGrid.style.cssText = "display:flex;flex-wrap:wrap;gap:1rem;justify-content:center;";
+
+      data.standalone_outfits.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "standalone-card";
+
+        const filename = (item.image_path || "").split("/").pop().split("\\").pop();
+        if (filename) {
+          const img = document.createElement("img");
+          img.alt = item.category;
+          img.loading = "lazy";
+          img.onerror = function() {
+            const ph = document.createElement("div");
+            ph.className = "placeholder";
+            ph.textContent = "🧥";
+            this.parentNode.replaceChild(ph, this);
+          };
+          loadImageWithAuth(img, filename);
+          card.appendChild(img);
+        }
+
+        const body = document.createElement("div");
+        body.className = "standalone-body";
+        body.innerHTML = `
+          <div class="score">Score: ${(item.score * 100).toFixed(1)}%</div>
+          <div class="meta-row"><span class="label">Category: </span>${esc(item.category)}</div>
+          <div class="meta-row"><span class="label">Colors: </span>${esc(item.colors.join(", "))}</div>
+        `;
+        if (item.rationale) {
+          body.innerHTML += `<div class="standalone-rationale">${esc(item.rationale)}</div>`;
+        }
+        card.appendChild(body);
+        standaloneGrid.appendChild(card);
+      });
+
+      grid.appendChild(standaloneGrid);
+    }
+  }
+
+  function buildComboItem(product, typeLabel) {
+    const el = document.createElement("div");
+    el.className = "combo-item";
+
+    const filename = (product.image_path || "").split("/").pop().split("\\").pop();
+    if (filename) {
+      const img = document.createElement("img");
+      img.alt = product.category;
+      img.loading = "lazy";
+      img.onerror = function() {
+        const ph = document.createElement("div");
+        ph.className = "placeholder";
+        ph.textContent = "🧥";
+        this.parentNode.replaceChild(ph, this);
+      };
+      loadImageWithAuth(img, filename);
+      el.appendChild(img);
+    }
+
+    const body = document.createElement("div");
+    body.className = "combo-item-body";
+    body.innerHTML = `
+      <div class="score">${esc(typeLabel)}: ${(product.score * 100).toFixed(1)}%</div>
+      <div class="meta-row">${esc(product.category)} · ${esc(product.colors.join(", "))}</div>
+      <div class="caption">${esc(product.caption)}</div>
+    `;
+    el.appendChild(body);
+    return el;
   }
 
   function esc(str) {
