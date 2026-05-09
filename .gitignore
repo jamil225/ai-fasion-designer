@@ -8,5 +8,6 @@ dist/
 build/
 CLAUDE.md
 AGENTS.md
+.claude-session-log.md
 frontend/node_modules/
 frontend/dist/
