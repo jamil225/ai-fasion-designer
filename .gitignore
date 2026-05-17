@@ -1,13 +1,36 @@
-.env
+# Python
 __pycache__/
 *.pyc
+*.egg-info/
 .venv/
 venv/
-*.egg-info/
 dist/
 build/
+
+# Secrets & local Claude/agent files
+.env
 CLAUDE.md
 AGENTS.md
 .claude-session-log.md
+.claude/
+
+# Frontend build artifacts
 frontend/node_modules/
 frontend/dist/
+
+# Personal study/learning notes
+learnings/
+
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
+# Generated knowledge graph output
+graphify-out/
+
+# Personal / scratch files (not for GitHub)
+*.numbers
+GIT_STATUS_SUMMARY.md
+
+# Temporary / unused image folder (active fixtures live in test_images/)
+temp-images/
