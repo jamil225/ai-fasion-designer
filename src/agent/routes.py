@@ -46,6 +46,7 @@ _GENDER_ALIASES = {
 }
 _OCCASIONS = {"wedding", "party", "casual", "formal", "festive", "office", "traditional"}
 _PENDING_CLARIFICATIONS: dict[str, dict] = {}
+_DEFAULT_NOTICES: dict[str, str] = {}
 
 
 def _infer_slots_from_text(text: str) -> dict[str, str]:
@@ -219,11 +220,27 @@ async def chat(body: dict = Body(...)) -> dict:
 
                 if missing:
                     gathered_slots = _with_slot_defaults(gathered_slots)
+                    _DEFAULT_NOTICES[thread_id] = (
+                        f"I'll go with {gathered_slots['gender']} "
+                        f"{gathered_slots['occasion']} since I couldn't get "
+                        "a clear answer on those - let me know if you'd like "
+                        "something different."
+                    )
 
                 turn_count = int(pending.get("turn_count") or 0) + 1
+                default_note = ""
+                if missing:
+                    default_note = (
+                        "\n\nSystem note: Required slots remained unclear after "
+                        f"{settings.agent_max_ask_user} clarification attempts, so "
+                        f"defaults were applied: gender={gathered_slots['gender']}, "
+                        f"occasion={gathered_slots['occasion']}. State this "
+                        "assumption transparently in your final reply."
+                    )
                 combined_message = (
                     f"{pending.get('message', '')}\n\n"
                     f"User clarification: {first.message}"
+                    f"{default_note}"
                 )
                 AGENT.invoke(_agent_input(combined_message, gathered_slots, turn_count), config=config)
             else:
@@ -260,11 +277,16 @@ async def chat(body: dict = Body(...)) -> dict:
         applied_filters = SearchFilters(**applied_filters)
     tool_trace = [t if isinstance(t, ToolTraceEntry) else ToolTraceEntry(**t) for t in (state_values.get("tool_trace") or [])]
 
+    message = _final_message_text(state_values)
+    default_notice = _DEFAULT_NOTICES.pop(thread_id, None)
+    if default_notice and default_notice not in message:
+        message = f"{default_notice}\n\n{message}".strip()
+
     return ChatFinalResponse(
         thread_id=thread_id,
         request_id=request_id,
         turn_count=turn_count,
-        message=_final_message_text(state_values),
+        message=message,
         combos=combos,
         applied_slots=dict(state_values.get("gathered_slots") or {}),
         applied_filters=applied_filters,
