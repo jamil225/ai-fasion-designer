@@ -10,10 +10,12 @@ from langchain_core.tools import tool, InjectedToolCallId  # InjectedToolCallId 
 from langgraph.prebuilt import InjectedState              # InjectedState lives in langgraph.prebuilt
 from langgraph.types import Command
 
-from src.agent.schemas import EnrichedQuery, SearchFilters, SlotCheckResult, ToolTraceEntry
+from src.agent.schemas import EnrichedQuery, Product, SearchFilters, SlotCheckResult, ToolTraceEntry
 from src.agent.prompt_loader import get_tool_prompt
 from src.config import Settings
+from src.schemas import SearchFilters as LegacySearchFilters, SearchRequest
 import src.query_enrichment as _qe_module
+import src.search as _legacy_search
 
 log = logging.getLogger(__name__)
 settings = Settings()
@@ -137,4 +139,80 @@ def enrich_query(
             "last_semantic_query": enriched.semantic_query,
             "tool_trace": [ToolTraceEntry(**entry)],
         }
+    )
+
+
+@tool
+def search_products(
+    semantic_query: str,
+    filters: SearchFilters,
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> Command:
+    """Search the product catalog for items matching the semantic query and filters. Returns at most 5 products. The LLM cannot override the result-count cap. Set filters to constrain by colors, occasion, category, or gender; leave fields None to relax the constraint. strict_mode auto-activates when any filter field is non-None."""
+    with _trace("search_products") as entry:
+        strict = any(
+            getattr(filters, f) for f in ("colors", "occasion", "category", "gender")
+        )
+        products: list[Product] = []
+        try:
+            # Build legacy SearchRequest — gender is agent-side only; legacy filters
+            # support colors/occasion/category. strict_mode passed via request flag.
+            legacy_filters = LegacySearchFilters(
+                colors=filters.colors,
+                occasion=filters.occasion,
+                category=filters.category,
+                # gender not in legacy SearchFilters — omitted intentionally
+            )
+            request = SearchRequest(
+                query=semantic_query,
+                top_k=settings.agent_max_results,
+                strict_mode=strict,
+                filters=legacy_filters if strict else None,
+            )
+            response = _legacy_search.run_search(
+                openai_api_key=settings.openai_api_key,
+                pinecone_api_key=settings.pinecone_api_key,
+                pinecone_index_name=settings.pinecone_index_name,
+                best_match_score_threshold=settings.best_match_score_threshold,
+                request=request,
+            )
+            for r in response.results[: settings.agent_max_results]:
+                products.append(_to_product(r, gender=filters.gender))
+        except Exception as exc:
+            entry["error"] = repr(exc)
+            log.warning("search_products failed: %s", exc)
+            products = []
+
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    content=f"{len(products)} products",
+                    tool_call_id=tool_call_id,
+                )
+            ],
+            "last_products": products,
+            "current_filters": filters,
+            "tool_trace": [ToolTraceEntry(**entry)],
+        }
+    )
+
+
+def _to_product(raw: Any, gender: str | None = None) -> Product:
+    """Map a legacy SearchResultItem to an agent Product."""
+    if hasattr(raw, "model_dump"):
+        raw = raw.model_dump()
+    matched = raw.get("matched_attributes") or {}
+    if hasattr(matched, "model_dump"):
+        matched = matched.model_dump()
+    return Product(
+        product_id=str(raw.get("product_id") or ""),
+        image_path=raw.get("image_path") or "",
+        score=float(raw.get("score") or 0.0),
+        category=matched.get("category") or raw.get("category") or "",
+        colors=list(matched.get("colors") or raw.get("colors") or []),
+        occasion=matched.get("occasion") or raw.get("occasion") or "",
+        style_tags=list(raw.get("style_tags") or []),
+        caption=raw.get("caption") or "",
+        gender=gender,
     )
