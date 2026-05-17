@@ -38,12 +38,19 @@ def enrich_query(
     api_key: str,
     model_name: str,
     query: str,
+    *,
+    system_prompt: str | None = None,
 ) -> str:
     """Enrich a user's raw fashion query into a semantically richer search string.
 
     Uses Gemini to expand the query with inferred attributes, synonyms, and
     fashion vocabulary aligned with the embedding text format used at ingestion.
+
+    system_prompt: optional override for the system prompt. Defaults to the
+    module-level QUERY_ENRICHMENT_SYSTEM_PROMPT constant so existing callers
+    are unaffected.
     """
+    prompt = system_prompt if system_prompt is not None else QUERY_ENRICHMENT_SYSTEM_PROMPT
     client = genai.Client(api_key=api_key)
     user_message = QUERY_ENRICHMENT_USER_TEMPLATE.format(query=query)
 
@@ -53,7 +60,7 @@ def enrich_query(
             response = client.models.generate_content(
                 model=model_name,
                 contents=[
-                    QUERY_ENRICHMENT_SYSTEM_PROMPT + "\n\n" + user_message,
+                    prompt + "\n\n" + user_message,
                 ],
             )
             enriched = response.text.strip()

@@ -106,8 +106,18 @@ class ChatInterruptResponse(BaseModel):
 # state dict without a KeyError. tool_trace uses operator.add as a reducer so
 # concurrent tool writes append rather than overwrite.
 
+
+def _merge_slot_dict(existing: dict[str, str] | None, new: dict[str, str]) -> dict[str, str]:
+    """Dict-merge reducer for gathered_slots.
+
+    Merges new slots into existing ones so that multiple enrich_query calls
+    across turns accumulate slots rather than overwriting the full dict.
+    """
+    return {**(existing or {}), **(new or {})}
+
+
 class FashionAgentState(AgentState):
-    gathered_slots: dict[str, str]
+    gathered_slots: Annotated[dict[str, str], _merge_slot_dict]
     current_filters: NotRequired[SearchFilters | None]
     last_semantic_query: NotRequired[str | None]
     last_products: list[Product]
