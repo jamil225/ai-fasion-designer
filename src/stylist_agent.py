@@ -100,6 +100,7 @@ def curate_outfits(
     original_query: str,
     products: list[dict],
     combo_count: int,
+    system_prompt: str | None = None,
 ) -> dict:
     """Use Gemini Pro to curate outfit combinations from vector search results.
 
@@ -109,6 +110,7 @@ def curate_outfits(
     """
     client = genai.Client(api_key=api_key)
 
+    effective_system_prompt = system_prompt if system_prompt is not None else STYLIST_SYSTEM_PROMPT
     products_json = _prepare_products_for_prompt(products)
     user_message = STYLIST_USER_TEMPLATE.format(
         original_query=original_query,
@@ -122,7 +124,7 @@ def curate_outfits(
             response = client.models.generate_content(
                 model=model_name,
                 contents=[
-                    STYLIST_SYSTEM_PROMPT + "\n\n" + user_message,
+                    effective_system_prompt + "\n\n" + user_message,
                 ],
             )
             raw_text = response.text

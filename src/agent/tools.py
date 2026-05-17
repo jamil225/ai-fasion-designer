@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+import uuid
 from contextlib import contextmanager
 from typing import Annotated, Any, Iterator
 
@@ -10,12 +11,13 @@ from langchain_core.tools import tool, InjectedToolCallId  # InjectedToolCallId 
 from langgraph.prebuilt import InjectedState              # InjectedState lives in langgraph.prebuilt
 from langgraph.types import Command
 
-from src.agent.schemas import EnrichedQuery, Product, SearchFilters, SlotCheckResult, ToolTraceEntry
+from src.agent.schemas import EnrichedQuery, OutfitCombo, Product, SearchFilters, SlotCheckResult, ToolTraceEntry
 from src.agent.prompt_loader import get_tool_prompt
 from src.config import Settings
 from src.schemas import SearchFilters as LegacySearchFilters, SearchRequest
 import src.query_enrichment as _qe_module
 import src.search as _legacy_search
+import src.stylist_agent as _legacy_stylist
 
 log = logging.getLogger(__name__)
 settings = Settings()
@@ -215,4 +217,142 @@ def _to_product(raw: Any, gender: str | None = None) -> Product:
         style_tags=list(raw.get("style_tags") or []),
         caption=raw.get("caption") or "",
         gender=gender,
+    )
+
+
+@tool
+def curate_outfits(
+    products: list[Product],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> Command:
+    """Curate outfit combinations from a list of products. Returns up to 5 combos, each with a mandatory rationale explaining why the items work together for the user's slots. Empty input returns []."""
+    with _trace("curate_outfits") as entry:
+        combos: list[OutfitCombo] = []
+        if not products:
+            # Empty input -> empty output, no fallback combos
+            pass
+        else:
+            try:
+                # Build a product_id -> Product lookup for resolving legacy ID references
+                product_map: dict[str, Product] = {p.product_id: p for p in products}
+                # Legacy function expects list[dict] with all product fields
+                products_as_dicts = [
+                    {
+                        "product_id": p.product_id,
+                        "image_path": p.image_path,
+                        "category": p.category,
+                        "colors": p.colors,
+                        "occasion": p.occasion,
+                        "style_tags": p.style_tags,
+                        "caption": p.caption,
+                        "gender": p.gender or "",
+                        "score": p.score,
+                        # Fields legacy stylist expects but agent Product may not have — provide safe defaults
+                        "wear_type": "",
+                        "season": "",
+                        "product_display_name": p.caption,
+                    }
+                    for p in products
+                ]
+                raw_result = _legacy_stylist.curate_outfits(
+                    api_key=settings.gemini_api_key,
+                    model_name=settings.stylist_model_name,
+                    original_query="",  # agent does not pass original_query through this tool
+                    products=products_as_dicts,
+                    combo_count=settings.agent_max_results,
+                    system_prompt=get_tool_prompt("stylist_system_prompt"),
+                )
+                rank = 1
+                # Process top+bottom combos
+                for raw_combo in (raw_result.get("combos") or []):
+                    if rank > settings.agent_max_results:
+                        break
+                    combo = _to_outfit_combo_from_ids(raw_combo, rank, product_map)
+                    if combo is not None:
+                        combos.append(combo)
+                        rank += 1
+                # Process standalone full-body outfits
+                for raw_solo in (raw_result.get("standalone_outfits") or []):
+                    if rank > settings.agent_max_results:
+                        break
+                    combo = _to_outfit_combo_from_solo(raw_solo, rank, product_map)
+                    if combo is not None:
+                        combos.append(combo)
+                        rank += 1
+            except Exception as exc:
+                entry["error"] = repr(exc)
+                log.warning("curate_outfits failed, using fallback combos: %s", exc)
+                # Fallback: zip top-3 products into individual single-item combos
+                for rank, p in enumerate(products[:3], start=1):
+                    combos.append(OutfitCombo(
+                        combo_id=uuid.uuid4().hex[:12],
+                        combo_rank=rank,
+                        items=[p],
+                        rationale="Stylist unavailable; showing raw results.",
+                    ))
+
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(content=f"{len(combos)} combos", tool_call_id=tool_call_id)
+            ],
+            "last_combos": combos,
+            "tool_trace": [ToolTraceEntry(**entry)],
+        }
+    )
+
+
+def _to_outfit_combo_from_ids(
+    raw_combo: dict,
+    rank: int,
+    product_map: dict[str, Product],
+) -> OutfitCombo | None:
+    """Map a legacy combo dict (top_product_id + bottom_product_id) to OutfitCombo.
+
+    Returns None if neither referenced product exists in product_map.
+    rationale comes from 'styling_rationale'; synthesizes a default if absent
+    (flagged as v3.1 concern — LLM should always provide styling_rationale).
+    """
+    items: list[Product] = []
+    for id_key in ("top_product_id", "bottom_product_id"):
+        pid = raw_combo.get(id_key)
+        if pid and pid in product_map:
+            items.append(product_map[pid])
+    if not items:
+        return None
+    rationale = str(
+        raw_combo.get("styling_rationale")
+        or raw_combo.get("rationale")
+        or "Curated combo based on shared occasion and palette."
+    ).strip() or "Curated combo based on shared occasion and palette."
+    return OutfitCombo(
+        combo_id=uuid.uuid4().hex[:12],
+        combo_rank=rank,
+        items=items,
+        rationale=rationale,
+    )
+
+
+def _to_outfit_combo_from_solo(
+    raw_solo: dict,
+    rank: int,
+    product_map: dict[str, Product],
+) -> OutfitCombo | None:
+    """Map a legacy standalone_outfit dict (product_id + rationale) to OutfitCombo.
+
+    Returns None if the referenced product is not in product_map.
+    """
+    pid = raw_solo.get("product_id")
+    if not pid or pid not in product_map:
+        return None
+    rationale = str(
+        raw_solo.get("rationale")
+        or raw_solo.get("styling_rationale")
+        or "Curated combo based on shared occasion and palette."
+    ).strip() or "Curated combo based on shared occasion and palette."
+    return OutfitCombo(
+        combo_id=uuid.uuid4().hex[:12],
+        combo_rank=rank,
+        items=[product_map[pid]],
+        rationale=rationale,
     )
