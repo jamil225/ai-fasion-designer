@@ -8,3 +8,7 @@ openai
 pinecone
 google-auth
 PyJWT
+langchain>=0.3,<0.4
+langgraph>=0.2,<0.4
+langchain-google-genai>=2.0,<3.0
+pyyaml>=6.0,<7.0

@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 import tomllib
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -56,6 +56,23 @@ class Settings(BaseSettings):
     # Google OAuth
     google_client_id: str = ""
     session_secret: str = ""
+
+    # Agent (v3.0)
+    agent_model_name: str = "gemini-2.5-flash"
+    agent_recursion_limit: int = 10
+    agent_max_ask_user: int = 3
+    agent_max_results: int = 5
+    agent_max_turns: int = 20
+    agent_default_gender: str = "women"
+    agent_default_occasion: str = "casual"
+    agent_required_search_fields: list[str] = Field(default_factory=lambda: ["gender", "occasion"])
+
+    @field_validator("agent_required_search_fields", mode="before")
+    @classmethod
+    def _parse_required_search_fields(cls, v: object) -> object:
+        if isinstance(v, str):
+            return [f.strip() for f in v.split(",") if f.strip()]
+        return v
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "populate_by_name": True, "extra": "ignore"}
 
