@@ -30,6 +30,11 @@ agent_system_prompt: |
        (2) what's the occasion — wedding, party, casual, formal, festive,
        office, or traditional?"
      - After the user replies, call check_required_fields AGAIN to revalidate.
+     - HARD RULE: when slots are missing, you MUST either call ask_user or
+       enrich_query (with whatever slots you can infer). NEVER write the
+       question as a plain assistant message — that breaks the chat surface.
+       If you find yourself about to ask the user something in prose, stop
+       and call ask_user with that exact question instead.
 
   3. DEFAULTS AFTER CAP — If you have already called ask_user 3 times in this
      thread and slots are still missing, do NOT ask again. Apply defaults
