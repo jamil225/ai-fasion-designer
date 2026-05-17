@@ -12,6 +12,7 @@ from langgraph.types import Command
 
 from src.agent.graph import AGENT
 from src.auth import verify_auth
+from src.config import Settings
 from src.agent.schemas import (
     ChatFinalResponse,
     ChatInterruptResponse,
@@ -26,6 +27,85 @@ from src.agent.schemas import (
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/chat", tags=["chat"])
+settings = Settings()
+
+_GENDER_ALIASES = {
+    "women": "women",
+    "woman": "women",
+    "womens": "women",
+    "women's": "women",
+    "female": "women",
+    "ladies": "women",
+    "lady": "women",
+    "men": "men",
+    "man": "men",
+    "mens": "men",
+    "men's": "men",
+    "male": "men",
+    "unisex": "unisex",
+}
+_OCCASIONS = {"wedding", "party", "casual", "formal", "festive", "office", "traditional"}
+_PENDING_CLARIFICATIONS: dict[str, dict] = {}
+
+
+def _infer_slots_from_text(text: str) -> dict[str, str]:
+    """Infer only explicit v3.0 required slots from user text."""
+    normalized = text.lower().replace("-", " ")
+    words = set(normalized.replace(",", " ").replace(".", " ").split())
+    slots: dict[str, str] = {}
+
+    for alias, value in _GENDER_ALIASES.items():
+        if alias in words or alias in normalized:
+            slots["gender"] = value
+            break
+
+    for occasion in _OCCASIONS:
+        if occasion in words:
+            slots["occasion"] = occasion
+            break
+
+    return slots
+
+
+def _missing_required_slots(gathered_slots: dict[str, str]) -> list[str]:
+    return [
+        field
+        for field in settings.agent_required_search_fields
+        if not gathered_slots.get(field)
+    ]
+
+
+def _clarification_question(missing_fields: list[str]) -> str:
+    if set(missing_fields) == {"gender", "occasion"}:
+        return (
+            "To find the best looks for you, could you tell me: "
+            "(1) is this for women's, men's, or unisex wear, and "
+            "(2) what's the occasion - wedding, party, casual, formal, "
+            "festive, office, or traditional?"
+        )
+    if missing_fields == ["gender"]:
+        return "Is this for women's, men's, or unisex wear?"
+    if missing_fields == ["occasion"]:
+        return (
+            "What's the occasion - wedding, party, casual, formal, festive, "
+            "office, or traditional?"
+        )
+    return f"Could you clarify these details: {', '.join(missing_fields)}?"
+
+
+def _with_slot_defaults(gathered_slots: dict[str, str]) -> dict[str, str]:
+    slots = dict(gathered_slots)
+    slots.setdefault("gender", settings.agent_default_gender)
+    slots.setdefault("occasion", settings.agent_default_occasion)
+    return slots
+
+
+def _agent_input(message: str, gathered_slots: dict[str, str], turn_count: int) -> dict:
+    return {
+        "messages": [HumanMessage(content=message)],
+        "gathered_slots": gathered_slots,
+        "turn_count": turn_count,
+    }
 
 
 def _detect_interrupt(thread_id: str) -> Optional[dict]:
@@ -73,7 +153,34 @@ async def chat(body: dict = Body(...)) -> dict:
             req = ChatRequest(thread_id=thread_id, message=body["message"])
             if len(req.message) > 500:
                 raise HTTPException(status_code=400, detail="message must be <= 500 characters.")
-            AGENT.invoke({"messages": [HumanMessage(content=req.message)]}, config=config)
+            state_values = _read_state_values(thread_id)
+            turn_count = int(state_values.get("turn_count") or 0) + 1
+            gathered_slots = {
+                **dict(state_values.get("gathered_slots") or {}),
+                **_infer_slots_from_text(req.message),
+            }
+            missing = _missing_required_slots(gathered_slots)
+            if missing:
+                question = _clarification_question(missing)
+                _PENDING_CLARIFICATIONS[thread_id] = {
+                    "message": req.message,
+                    "gathered_slots": gathered_slots,
+                    "question": question,
+                    "turn_count": turn_count,
+                    "ask_count": 1,
+                }
+                return ChatInterruptResponse(
+                    thread_id=thread_id,
+                    request_id=request_id,
+                    turn_count=turn_count,
+                    pending_action=PendingAction(
+                        name="ask_user",
+                        arguments={"question": question},
+                    ),
+                    latency_ms=int((time.perf_counter() - start) * 1000),
+                ).model_dump()
+
+            AGENT.invoke(_agent_input(req.message, gathered_slots, turn_count), config=config)
         else:
             req = ChatResumeRequest(thread_id=thread_id, resume=body["resume"])
             if not req.resume.decisions:
@@ -82,7 +189,45 @@ async def chat(body: dict = Body(...)) -> dict:
             first = req.resume.decisions[0]
             if first.type != "respond":
                 raise HTTPException(status_code=400, detail="only 'respond' decisions are supported in v3.0.")
-            AGENT.invoke(Command(resume=first.message), config=config)
+            pending = _PENDING_CLARIFICATIONS.pop(thread_id, None)
+            if pending:
+                gathered_slots = {
+                    **dict(pending.get("gathered_slots") or {}),
+                    **_infer_slots_from_text(first.message),
+                }
+                missing = _missing_required_slots(gathered_slots)
+                ask_count = int(pending.get("ask_count") or 1)
+                if missing and ask_count < settings.agent_max_ask_user:
+                    question = _clarification_question(missing)
+                    _PENDING_CLARIFICATIONS[thread_id] = {
+                        **pending,
+                        "gathered_slots": gathered_slots,
+                        "question": question,
+                        "turn_count": int(pending.get("turn_count") or 0) + 1,
+                        "ask_count": ask_count + 1,
+                    }
+                    return ChatInterruptResponse(
+                        thread_id=thread_id,
+                        request_id=request_id,
+                        turn_count=int(_PENDING_CLARIFICATIONS[thread_id]["turn_count"]),
+                        pending_action=PendingAction(
+                            name="ask_user",
+                            arguments={"question": question},
+                        ),
+                        latency_ms=int((time.perf_counter() - start) * 1000),
+                    ).model_dump()
+
+                if missing:
+                    gathered_slots = _with_slot_defaults(gathered_slots)
+
+                turn_count = int(pending.get("turn_count") or 0) + 1
+                combined_message = (
+                    f"{pending.get('message', '')}\n\n"
+                    f"User clarification: {first.message}"
+                )
+                AGENT.invoke(_agent_input(combined_message, gathered_slots, turn_count), config=config)
+            else:
+                AGENT.invoke(Command(resume=first.message), config=config)
     except GraphRecursionError as exc:
         log.warning("recursion limit hit on thread %s: %s", thread_id, exc)
         raise HTTPException(status_code=500, detail="Agent took too many steps. Please start a new thread.") from exc
@@ -170,6 +315,22 @@ def _serialize_messages(state_values: dict) -> list[dict]:
 @router.get("/threads/{thread_id}", dependencies=[Depends(verify_auth)])
 async def get_thread(thread_id: str) -> dict:
     """Inspect the current state of a chat thread (diagnostic endpoint)."""
+    pending_record = _PENDING_CLARIFICATIONS.get(thread_id)
+    if pending_record:
+        pending = PendingAction(
+            name="ask_user",
+            arguments={"question": pending_record.get("question", "")},
+        )
+        return {
+            "thread_id": thread_id,
+            "messages": [
+                {"role": "user", "content": str(pending_record.get("message", ""))}
+            ],
+            "pending_action": pending.model_dump(),
+            "turn_count": int(pending_record.get("turn_count") or 0),
+            "gathered_slots": dict(pending_record.get("gathered_slots") or {}),
+        }
+
     state = AGENT.get_state(config={"configurable": {"thread_id": thread_id}})
     if not state or not state.values:
         raise HTTPException(status_code=404, detail="Thread not found.")

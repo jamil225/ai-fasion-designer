@@ -180,6 +180,23 @@ def search_products(
                 best_match_score_threshold=settings.best_match_score_threshold,
                 request=request,
             )
+            if strict and not response.results:
+                log.info(
+                    "strict agent search returned 0 products; retrying soft search"
+                )
+                entry["error"] = "strict_search_zero_results_soft_fallback"
+                response = _legacy_search.run_search(
+                    openai_api_key=settings.openai_api_key,
+                    pinecone_api_key=settings.pinecone_api_key,
+                    pinecone_index_name=settings.pinecone_index_name,
+                    best_match_score_threshold=settings.best_match_score_threshold,
+                    request=SearchRequest(
+                        query=semantic_query,
+                        top_k=settings.agent_max_results,
+                        strict_mode=False,
+                        filters=None,
+                    ),
+                )
             for r in response.results[: settings.agent_max_results]:
                 products.append(_to_product(r, gender=filters.gender))
         except Exception as exc:
