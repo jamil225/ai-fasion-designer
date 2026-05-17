@@ -33,7 +33,8 @@ function ComboItemImage({ item }) {
   if (!imageUrl || imageError) {
     return (
       <div className="chat-combo-image-placeholder" aria-hidden="true">
-        IMG
+        <span className="chat-combo-image-placeholder-icon">👕</span>
+        <span className="chat-combo-image-placeholder-label">{item?.category || "Item"}</span>
       </div>
     );
   }
@@ -42,7 +43,7 @@ function ComboItemImage({ item }) {
     <img
       className="chat-combo-image"
       src={imageUrl}
-      alt={item?.category || "Outfit item"}
+      alt={item?.caption || item?.category || "Outfit item"}
       loading="lazy"
       onError={() => setImageError(true)}
     />
@@ -151,10 +152,12 @@ export default function ChatPanel() {
                       <div className="chat-combo-item" key={item.product_id || ii}>
                         <ComboItemImage item={item} />
                         <div className="chat-combo-item-copy">
-                          <strong>{item.category || "Item"}</strong>
-                          {item.colors?.length > 0 && (
-                            <span>{item.colors.join(", ")}</span>
-                          )}
+                          <strong className="chat-combo-item-name">
+                            {item.caption || item.category || "Item"}
+                          </strong>
+                          <span className="chat-combo-item-meta">
+                            {[item.category, item.colors?.join(", ")].filter(Boolean).join(" · ")}
+                          </span>
                         </div>
                       </div>
                     ))}
