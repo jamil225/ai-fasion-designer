@@ -148,6 +148,7 @@ async def chat(body: dict = Body(...)) -> dict:
         raise HTTPException(status_code=400, detail="thread_id is required.")
 
     config = {"configurable": {"thread_id": thread_id}}
+    trace_start_len = len(_read_state_values(thread_id).get("tool_trace") or [])
 
     try:
         if has_message:
@@ -271,11 +272,17 @@ async def chat(body: dict = Body(...)) -> dict:
             latency_ms=latency_ms,
         ).model_dump()
 
-    combos = [c if isinstance(c, OutfitCombo) else OutfitCombo(**c) for c in (state_values.get("last_combos") or [])]
     applied_filters = state_values.get("current_filters")
     if applied_filters is not None and not isinstance(applied_filters, SearchFilters):
         applied_filters = SearchFilters(**applied_filters)
-    tool_trace = [t if isinstance(t, ToolTraceEntry) else ToolTraceEntry(**t) for t in (state_values.get("tool_trace") or [])]
+    all_tool_trace = [t if isinstance(t, ToolTraceEntry) else ToolTraceEntry(**t) for t in (state_values.get("tool_trace") or [])]
+    tool_trace = all_tool_trace[trace_start_len:]
+    produced_combos = any(t.tool_name == "curate_outfits" for t in tool_trace)
+    combos = (
+        [c if isinstance(c, OutfitCombo) else OutfitCombo(**c) for c in (state_values.get("last_combos") or [])]
+        if produced_combos
+        else []
+    )
 
     message = _final_message_text(state_values)
     default_notice = _DEFAULT_NOTICES.pop(thread_id, None)
@@ -367,4 +374,8 @@ async def get_thread(thread_id: str) -> dict:
         "pending_action": pending.model_dump() if pending else None,
         "turn_count": int(state_values.get("turn_count") or 0),
         "gathered_slots": dict(state_values.get("gathered_slots") or {}),
+        "tool_trace": [
+            (t if isinstance(t, ToolTraceEntry) else ToolTraceEntry(**t)).model_dump()
+            for t in (state_values.get("tool_trace") or [])
+        ],
     }
