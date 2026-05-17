@@ -87,6 +87,11 @@ async def chat(body: dict = Body(...)) -> dict:
             first = req.resume.decisions[0]
             if first.type != "respond":
                 raise HTTPException(status_code=400, detail="only 'respond' decisions are supported in v3.0.")
+            if _detect_interrupt(thread_id) is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="No pending interrupt for this thread (server may have restarted). Start a new thread.",
+                )
             AGENT.invoke(Command(resume=first.message), config=config)
     except GraphRecursionError as exc:
         log.warning("recursion limit hit on thread %s: %s", thread_id, exc)
