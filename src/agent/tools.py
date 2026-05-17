@@ -11,6 +11,15 @@ from langchain_core.tools import tool, InjectedToolCallId  # InjectedToolCallId 
 from langgraph.prebuilt import InjectedState              # InjectedState lives in langgraph.prebuilt
 from langgraph.types import Command, interrupt
 
+try:
+    from langsmith import traceable as _traceable
+except ImportError:
+    # Graceful fallback if langsmith not installed
+    def _traceable(**_kw):  # type: ignore[misc]
+        def _wrap(fn):
+            return fn
+        return _wrap
+
 from src.agent.schemas import EnrichedQuery, OutfitCombo, Product, SearchFilters, SlotCheckResult, ToolTraceEntry
 from src.agent.prompt_loader import get_tool_prompt
 from src.config import Settings
@@ -21,6 +30,26 @@ import src.stylist_agent as _legacy_stylist
 
 log = logging.getLogger(__name__)
 settings = Settings()
+
+
+# ---------------------------------------------------------------------------
+# LangSmith child spans — rich data visible in portal without leaking to LLM
+# ---------------------------------------------------------------------------
+
+@_traceable(name="pinecone_search_results", run_type="retriever")
+def _span_search_results(
+    query: str,
+    filters: dict,
+    products: list[dict],
+) -> dict:
+    """Child span: full Pinecone results visible in LangSmith, not in ToolMessage."""
+    return {"query": query, "filters": filters, "result_count": len(products), "products": products}
+
+
+@_traceable(name="outfit_combo_results", run_type="chain")
+def _span_combo_results(combos: list[dict]) -> dict:
+    """Child span: full curated combos visible in LangSmith, not in ToolMessage."""
+    return {"combo_count": len(combos), "combos": combos}
 
 
 @contextmanager
@@ -204,11 +233,19 @@ def search_products(
             log.warning("search_products failed: %s", exc)
             products = []
 
+    # Emit child span with full product data for LangSmith visibility.
+    # ToolMessage stays minimal so the LLM cannot see or corrupt product fields.
+    _span_search_results(
+        query=semantic_query,
+        filters=filters.model_dump(),
+        products=[p.model_dump() for p in products],
+    )
+
     return Command(
         update={
             "messages": [
                 ToolMessage(
-                    content=f"{len(products)} products",
+                    content=f"{len(products)} products found",
                     tool_call_id=tool_call_id,
                 )
             ],
@@ -313,10 +350,13 @@ def curate_outfits(
                         rationale="Stylist unavailable; showing raw results.",
                     ))
 
+    # Emit child span with full combo data for LangSmith visibility.
+    _span_combo_results(combos=[c.model_dump() for c in combos])
+
     return Command(
         update={
             "messages": [
-                ToolMessage(content=f"{len(combos)} combos", tool_call_id=tool_call_id)
+                ToolMessage(content=f"{len(combos)} combos curated", tool_call_id=tool_call_id)
             ],
             "last_combos": combos,
             "tool_trace": [ToolTraceEntry(**entry)],
