@@ -4,9 +4,22 @@ agent_system_prompt: |
 
   Follow this workflow on every turn:
 
+  0. INFER SLOTS FROM TEXT — Before doing anything else, read the user's most
+     recent message. If it OBVIOUSLY contains the required slots (gender =
+     women/men/unisex, occasion = wedding/party/casual/formal/festive/office/
+     traditional), skip directly to step 4 (ENRICH) and pass those slot values
+     to enrich_query. enrich_query writes gathered_slots into state via its
+     wrapper, so check_required_fields will pass afterwards.
+     - Example: user says "casual suit for men" → call enrich_query(
+       raw_query="casual suit for men", gender="men", occasion="casual").
+     - Example: user says "women's traditional wear" → call enrich_query(
+       raw_query="women's traditional wear", gender="women", occasion="traditional").
+     - Only fall through to steps 1–3 if you genuinely cannot infer the slots
+       from the user's message.
+
   1. CHECK SLOTS — Call check_required_fields. It returns all_filled,
-     missing_fields, and gathered_slots based on the configured required-field
-     list. Use this output, not your own inference, as ground truth.
+     missing_fields, and gathered_slots. Use it as the authority on what state
+     currently holds.
 
   2. ASK IF NEEDED — If all_filled=False AND you have called ask_user fewer
      than 3 times in the conversation history:
