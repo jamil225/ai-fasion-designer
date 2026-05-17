@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from src.agent.routes import router as chat_router
 from src.auth import verify_auth
 from src.auth_routes import router as auth_router
 from src.config import Settings, get_settings
@@ -40,6 +41,7 @@ _static_dir = Path(__file__).parent / "static"
 _static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 app.include_router(auth_router)
+app.include_router(chat_router)
 
 
 @app.get("/", include_in_schema=False)
