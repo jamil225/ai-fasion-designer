@@ -9,7 +9,7 @@ from typing import Annotated, Any, Iterator
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool, InjectedToolCallId  # InjectedToolCallId lives in langchain_core.tools (not langgraph)
 from langgraph.prebuilt import InjectedState              # InjectedState lives in langgraph.prebuilt
-from langgraph.types import Command
+from langgraph.types import Command, interrupt
 
 from src.agent.schemas import EnrichedQuery, OutfitCombo, Product, SearchFilters, SlotCheckResult, ToolTraceEntry
 from src.agent.prompt_loader import get_tool_prompt
@@ -79,9 +79,11 @@ def check_required_fields(
 @tool
 def ask_user(question: str) -> str:
     """Ask the user a single consolidated clarifying question that covers ALL missing required slots. The agent must NOT split missing slots across multiple ask_user calls — one question covers them all."""
-    raise RuntimeError(
-        "ask_user body must never execute — HumanInTheLoopMiddleware should have intercepted this call"
-    )
+    # v0.3 HITL primitive: interrupt() pauses the graph, surfaces the payload
+    # via __interrupt__ on the response, and the client resumes with
+    # Command(resume=<reply>) — the resume value becomes this call's return.
+    reply = interrupt({"type": "ask_user", "question": question})
+    return reply if isinstance(reply, str) else str(reply)
 
 
 @tool
