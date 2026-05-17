@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -30,6 +31,21 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Activate LangSmith tracing — must set os.environ BEFORE langsmith is imported
+# by any route handler, so we do it here at module load time.
+def _configure_langsmith() -> None:
+    from src.config import get_settings
+    s = get_settings()
+    if s.langchain_tracing_v2 and s.langchain_api_key:
+        os.environ["LANGCHAIN_TRACING_V2"] = "true"
+        os.environ["LANGCHAIN_API_KEY"] = s.langchain_api_key
+        os.environ["LANGCHAIN_PROJECT"] = s.langchain_project
+        logger.info("LangSmith tracing ON — project: %s", s.langchain_project)
+    else:
+        logger.info("LangSmith tracing OFF (set LANGCHAIN_TRACING_V2=true + LANGCHAIN_API_KEY to enable)")
+
+_configure_langsmith()
 
 app = FastAPI(
     title="AI Fashion Designer",

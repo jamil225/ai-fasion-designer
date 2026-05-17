@@ -71,7 +71,12 @@ async def chat(body: dict = Body(...)) -> dict:
     if not thread_id or not isinstance(thread_id, str):
         raise HTTPException(status_code=400, detail="thread_id is required.")
 
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {
+        "configurable": {"thread_id": thread_id},
+        "run_name": f"chat/{thread_id[:8]}",
+        "tags": ["v3.0", "chat"],
+        "metadata": {"thread_id": thread_id, "request_id": request_id},
+    }
     trace_before = len(_read_state(thread_id).get("tool_trace") or [])
 
     try:

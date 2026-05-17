@@ -34,6 +34,7 @@ _AGENT = create_react_agent(
     state_schema=FashionAgentState,
     checkpointer=_CHECKPOINTER,
     prompt=get_agent_prompt("agent_system_prompt"),
+    name="fashion-stylist-agent",
 )
 
 # Apply recursion cap globally so callers don't have to remember it.

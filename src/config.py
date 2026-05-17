@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     agent_default_occasion: str = "casual"
     agent_required_search_fields: list[str] = Field(default_factory=lambda: ["gender", "occasion"])
 
+    # LangSmith observability (opt-in — tracing disabled when key is empty)
+    langchain_tracing_v2: bool = False
+    langchain_api_key: str = ""
+    langchain_project: str = "ai-fashion-designer"
+
     @field_validator("agent_required_search_fields", mode="before")
     @classmethod
     def _parse_required_search_fields(cls, v: object) -> object:
