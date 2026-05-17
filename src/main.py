@@ -42,6 +42,17 @@ def _configure_langsmith() -> None:
         os.environ["LANGCHAIN_API_KEY"] = s.langchain_api_key
         os.environ["LANGCHAIN_PROJECT"] = s.langchain_project
         logger.info("LangSmith tracing ON — project: %s", s.langchain_project)
+        # Probe connectivity so an expired/invalid key fails loudly at startup
+        # rather than silently dropping traces in the background.
+        try:
+            from langsmith import Client as _LsClient
+            _LsClient().list_projects(limit=1)
+            logger.info("LangSmith connection OK")
+        except Exception as exc:
+            logger.error(
+                "LangSmith connection FAILED — traces will be dropped. "
+                "Check LANGCHAIN_API_KEY (may be expired or invalid). Error: %s", exc
+            )
     else:
         logger.info("LangSmith tracing OFF (set LANGCHAIN_TRACING_V2=true + LANGCHAIN_API_KEY to enable)")
 
