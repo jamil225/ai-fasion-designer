@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     search_enrichment_model_name: str = "gemini-2.5-flash"
     # Stylist agent (outfit curation from vector results)
     stylist_model_name: str = "gemini-2.5-pro"
+    # Image generation model (virtual try-on via Gemini native image output)
+    image_generation_model_name: str = "gemini-2.5-flash"
+
+    # Virtual try-on
+    default_model_image_path: str = ""
+    tryon_output_dir: str = "generated_tryons"
 
     # OpenAI (embeddings only)
     openai_api_key: str = ""

@@ -1,0 +1,29 @@
+# graphify ignore file — exclude noise from the knowledge graph
+# Syntax: same as .gitignore
+
+# Test fixtures and raw catalog image dumps (not part of app architecture)
+test_images/
+temp-images/
+
+# Frontend SVG icons / asset blobs (not domain concepts)
+frontend/public/*.svg
+frontend/src/assets/
+
+# Build / dependency dirs
+node_modules/
+dist/
+build/
+.venv/
+venv/
+__pycache__/
+
+# Generated outputs
+graphify-out/
+.claude-session-log.md
+
+# Numbers/spreadsheet files
+*.numbers
+
+# OS / editor cruft
+.DS_Store
+*.log

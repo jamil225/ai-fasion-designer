@@ -10,7 +10,7 @@ from src.embeddings import build_embedding_text, generate_embedding
 from src.merge import merge_product_data
 from src.pinecone_client import hash_exists, init_pinecone, upsert_vector
 from src.schemas import FailedItem, IngestMode, IngestStatus
-from src.taxonomy import normalize_vision_output, normalize_wear_type
+from src.taxonomy import normalize_vision_output
 from src.vision import extract_metadata
 
 logger = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ def run_ingestion(settings: Settings, mode: IngestMode) -> str:
     for image_path in images:
         filename = image_path.name
         try:
-            file_hash = compute_file_hash(image_path)
+            file_hash = compute_file_hash(image_path) # compute hash of the image to avoid duplication
             logger.info(
                 "job_id=%s Processing %s (hash=%s)", job_id, filename, file_hash[:12]
             )
@@ -130,13 +130,6 @@ def run_ingestion(settings: Settings, mode: IngestMode) -> str:
 
             # Normalize taxonomy fields on the merged output
             metadata = normalize_vision_output(merged_output)
-
-            # Resolve wear_type via three-tier classification
-            metadata["wear_type"] = normalize_wear_type(
-                csv_sub_category=csv_row.get("subCategory") if csv_row else None,
-                vision_wear_type=merged_output.get("vision_wear_type"),
-                category=metadata["category"],
-            )
 
             # Attach pipeline fields
             metadata["raw_vision_output"] = vision_output.get("raw_vision_output", "")
