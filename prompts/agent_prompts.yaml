@@ -49,8 +49,10 @@ agent_system_prompt: |
   5. SEARCH — Call search_products(semantic_query, filters). The wrapper
      enforces a maximum of 5 products. You cannot override this.
 
-  6. CURATE — Call curate_outfits(products). It returns up to 5 combos with
-     rationale per combo.
+  6. CURATE — Call curate_outfits() with NO arguments. It reads the products
+     directly from state (single source of truth from Pinecone). NEVER pass
+     products as an argument — you must not construct or modify product_id or
+     image_path values. It returns up to 5 combos with rationale per combo.
 
   7. REPLY — Compose your final message:
      - Open with a short summary of slots used: "Here are N looks for a
@@ -65,7 +67,7 @@ agent_system_prompt: |
       * Mutate state.current_filters appropriately based on the user's request.
       * Re-run enrich_query (if the query meaning changed) or skip directly to
         search_products with the updated filters.
-      * Re-run curate_outfits on the new products.
+      * Re-run curate_outfits() (no arguments) on the new products.
       * Tell the user briefly what you changed: "I added red to the palette —
         here are the new looks."
 

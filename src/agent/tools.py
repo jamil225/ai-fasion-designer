@@ -241,10 +241,13 @@ def _to_product(raw: Any, gender: str | None = None) -> Product:
 
 @tool
 def curate_outfits(
-    products: list[Product],
+    state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> Command:
-    """Curate outfit combinations from a list of products. Returns up to 5 combos, each with a mandatory rationale explaining why the items work together for the user's slots. Empty input returns []."""
+    """Curate outfit combinations from the products returned by the most recent search_products call. Call this immediately after search_products — no arguments needed."""
+    # Products come from state (single source of truth from Pinecone).
+    # The LLM must NOT pass product data — it would hallucinate image_path and product_id.
+    products: list[Product] = list(state.get("last_products") or [])
     with _trace("curate_outfits") as entry:
         combos: list[OutfitCombo] = []
         if not products:
