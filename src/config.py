@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     session_secret: str = ""
 
     # Agent (v3.0)
-    agent_model_name: str = "gemini-2.5-flash"
+    agent_model_name: str = "gemini-2.5-pro"
     agent_recursion_limit: int = 10
     agent_max_ask_user: int = 3
     agent_max_results: int = 5
