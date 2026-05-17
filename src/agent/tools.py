@@ -68,3 +68,11 @@ def check_required_fields(
             "tool_trace": [ToolTraceEntry(**entry)],
         }
     )
+
+
+@tool
+def ask_user(question: str) -> str:
+    """Ask the user a single consolidated clarifying question that covers ALL missing required slots. The agent must NOT split missing slots across multiple ask_user calls — one question covers them all."""
+    raise RuntimeError(
+        "ask_user body must never execute — HumanInTheLoopMiddleware should have intercepted this call"
+    )
