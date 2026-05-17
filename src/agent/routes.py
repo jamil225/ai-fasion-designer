@@ -6,7 +6,7 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.errors import GraphRecursionError
 from langgraph.types import Command
 
@@ -126,3 +126,62 @@ async def chat(body: dict = Body(...)) -> dict:
         latency_ms=latency_ms,
         tool_trace=tool_trace,
     ).model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Task 5.2 — GET /v1/chat/threads/{thread_id}  (PRD §Public APIs)
+# ---------------------------------------------------------------------------
+
+def _extract_pending_action(state) -> Optional[PendingAction]:
+    """Return PendingAction from state.tasks if the thread is interrupted, else None."""
+    if not state or not state.tasks:
+        return None
+    for task in state.tasks:
+        for itr in getattr(task, "interrupts", ()) or ():
+            payload = itr.value
+            if isinstance(payload, dict):
+                question = payload.get("question", "")
+                name = payload.get("type", "ask_user")
+            else:
+                question = str(payload)
+                name = "ask_user"
+            return PendingAction(name=name, arguments={"question": question})
+    return None
+
+
+def _serialize_messages(state_values: dict) -> list[dict]:
+    """Return messages as [{role, content}], stripping tool internals."""
+    out: list[dict] = []
+    for msg in state_values.get("messages") or []:
+        if isinstance(msg, HumanMessage):
+            text = msg.content if isinstance(msg.content, str) else str(msg.content)
+            out.append({"role": "user", "content": text})
+        elif isinstance(msg, AIMessage):
+            # Skip pure tool-call nodes (no visible text)
+            if getattr(msg, "tool_calls", None) and not msg.content:
+                continue
+            text = msg.content if isinstance(msg.content, str) else str(msg.content)
+            out.append({"role": "assistant", "content": text})
+        elif isinstance(msg, SystemMessage):
+            continue  # omit system messages from public response
+    return out
+
+
+@router.get("/threads/{thread_id}", dependencies=[Depends(verify_auth)])
+async def get_thread(thread_id: str) -> dict:
+    """Inspect the current state of a chat thread (diagnostic endpoint)."""
+    state = AGENT.get_state(config={"configurable": {"thread_id": thread_id}})
+    if not state or not state.values:
+        raise HTTPException(status_code=404, detail="Thread not found.")
+
+    state_values = dict(state.values)
+    messages = _serialize_messages(state_values)
+    pending = _extract_pending_action(state)
+
+    return {
+        "thread_id": thread_id,
+        "messages": messages,
+        "pending_action": pending.model_dump() if pending else None,
+        "turn_count": int(state_values.get("turn_count") or 0),
+        "gathered_slots": dict(state_values.get("gathered_slots") or {}),
+    }
