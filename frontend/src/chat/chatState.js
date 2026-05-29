@@ -39,7 +39,12 @@ export function useChatState() {
       if (data.message) {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: data.message, combos: data.combos || [] },
+          { 
+            role: "assistant", 
+            content: data.message, 
+            combos: data.combos || [],
+            guardrailsPassed: data.guardrails_passed
+          },
         ]);
       }
     }

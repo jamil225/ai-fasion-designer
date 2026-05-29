@@ -25,8 +25,10 @@ _LLM = ChatGoogleGenerativeAI(
     google_api_key=_settings.gemini_api_key,
     temperature=0,
 )
+log.info("Agent LLM loaded: model=%s", _settings.agent_model_name)
 
 _CHECKPOINTER = InMemorySaver()
+log.info("Agent checkpointer: %s", type(_CHECKPOINTER).__name__)
 
 _AGENT = create_react_agent(
     model=_LLM,
@@ -39,3 +41,4 @@ _AGENT = create_react_agent(
 
 # Apply recursion cap globally so callers don't have to remember it.
 AGENT = _AGENT.with_config({"recursion_limit": _settings.agent_recursion_limit})
+log.info("ReAct agent ready: name=fashion-stylist-agent, tools=5, recursion_limit=%d", _settings.agent_recursion_limit)

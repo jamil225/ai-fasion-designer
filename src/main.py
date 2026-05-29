@@ -2,6 +2,14 @@ import logging
 import os
 from pathlib import Path
 
+# Configure logging FIRST — before any src.* imports that emit startup logs.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-7s [%(name)s] --- %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,12 +33,6 @@ from src.schemas import (
 )
 from src.search import run_search
 from src.styled_search import run_styled_search
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
-logger = logging.getLogger(__name__)
 
 # Activate LangSmith tracing — must set os.environ BEFORE langsmith is imported
 # by any route handler, so we do it here at module load time.

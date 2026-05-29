@@ -91,6 +91,7 @@ def check_required_fields(
             missing_fields=missing,
             gathered_slots=gathered,
         )
+        log.info("check_required_fields: all_filled=%s, missing=%s", result.all_filled, missing)
 
     return Command(
         update={
@@ -111,7 +112,9 @@ def ask_user(question: str) -> str:
     # v0.3 HITL primitive: interrupt() pauses the graph, surfaces the payload
     # via __interrupt__ on the response, and the client resumes with
     # Command(resume=<reply>) — the resume value becomes this call's return.
+    log.info("ask_user: question='%s'", question)
     reply = interrupt({"type": "ask_user", "question": question})
+    log.info("ask_user: reply='%s'", reply)
     return reply if isinstance(reply, str) else str(reply)
 
 
@@ -183,6 +186,7 @@ def search_products(
 ) -> Command:
     """Search the product catalog for items matching the semantic query and filters. Returns at most 5 products. The LLM cannot override the result-count cap. Set filters to constrain by colors, occasion, category, or gender; leave fields None to relax the constraint. strict_mode auto-activates when any filter field is non-None."""
     with _trace("search_products") as entry:
+        log.info("search_products: query='%s', gender=%s, occasion=%s", semantic_query, filters.gender, filters.occasion)
         strict = any(
             getattr(filters, f) for f in ("colors", "occasion", "category", "gender")
         )
@@ -232,6 +236,8 @@ def search_products(
             entry["error"] = repr(exc)
             log.warning("search_products failed: %s", exc)
             products = []
+
+    log.info("search_products: returned %d products", len(products))
 
     # Emit child span with full product data for LangSmith visibility.
     # ToolMessage stays minimal so the LLM cannot see or corrupt product fields.
@@ -288,6 +294,7 @@ def curate_outfits(
     with _trace("curate_outfits") as entry:
         combos: list[OutfitCombo] = []
         if not products:
+            log.info("curate_outfits: 0 products in state, skipping")
             # Empty input -> empty output, no fallback combos
             pass
         else:
@@ -351,6 +358,7 @@ def curate_outfits(
                     ))
 
     # Emit child span with full combo data for LangSmith visibility.
+    log.info("curate_outfits: produced %d combos from %d products", len(combos), len(products))
     _span_combo_results(combos=[c.model_dump() for c in combos])
 
     return Command(

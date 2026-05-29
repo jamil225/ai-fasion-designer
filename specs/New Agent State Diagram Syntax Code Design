@@ -1,0 +1,35 @@
+---
+config:
+  theme: base
+  look: neo
+  fontFamily: '''Open Sans Variable'', sans-serif'
+  themeVariables:
+    fontFamily: '''Open Sans Variable'', sans-serif'
+  layout: dagre
+---
+stateDiagram
+  direction TB
+  [*] --> UserInput:new message
+  UserInput --> SlotValidation
+  SlotValidation --> AskUser:❌ missing slots
+  AskUser --> SlotValidation:user replies
+  SlotValidation --> EnrichQuery:✅ all slots filled
+  EnrichQuery --> AskRephrase:❌ cannot parse intent
+  AskRephrase --> UserInput:new message
+  EnrichQuery --> SearchRAG:✅ query enriched
+  SearchRAG --> ToolRAGAgent
+  ToolRAGAgent --> StylistAgent:✅ products found
+  ToolRAGAgent --> [*]:❌ no products found
+  StylistAgent --> ShowResults:✅ combos ready
+  StylistAgent --> [*]:❌ no combos found
+  ShowResults --> UserInput:🔄 user refines query
+  ShowResults --> [*]:✅ user satisfied
+  UserInput:👤 User Input
+  SlotValidation:🔎 Slot Validation\ngender + occasion present?
+  AskUser:💬 Ask User\nconsolidated clarifying question
+  EnrichQuery:✨ Enrich Query\nsemantic expansion
+  AskRephrase:💬 Ask User\nplease rephrase
+  SearchRAG:🔍 Search RAG\nbuild filters
+  ToolRAGAgent:🛠️  Tool RAG Agent\nPinecone top-K fetch
+  StylistAgent:👗 Stylist Agent\ncurate outfit combos
+  ShowResults:✅ Show Results\noutfit combos displayed

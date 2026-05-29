@@ -50,7 +50,9 @@ def create_session_token(user_info: dict, session_secret: str) -> str:
         "iat": datetime.now(timezone.utc),
         "exp": datetime.now(timezone.utc) + timedelta(seconds=SESSION_MAX_AGE_SECONDS),
     }
-    return jwt.encode(payload, session_secret, algorithm="HS256")
+    token = jwt.encode(payload, session_secret, algorithm="HS256")
+    logger.info("Session token created for user=%s", user_info["email"])
+    return token
 
 
 def verify_session_token(token: str, session_secret: str) -> dict:
@@ -63,8 +65,10 @@ def verify_session_token(token: str, session_secret: str) -> dict:
             "picture": payload.get("picture", ""),
         }
     except jwt.ExpiredSignatureError:
+        logger.info("Session token expired")
         return None
     except jwt.InvalidTokenError:
+        logger.info("Session token invalid")
         return None
 
 
@@ -82,10 +86,13 @@ async def verify_auth(
     if session_token and settings.session_secret:
         user_info = verify_session_token(session_token, settings.session_secret)
         if user_info:
+            logger.info("Auth OK via session cookie, user=%s", user_info["email"])
             return user_info["email"]
 
     # 2. Fall back to API key (for Swagger / programmatic access)
     if api_key and api_key == settings.app_api_key:
+        logger.info("Auth OK via API key")
         return "api-key-user"
 
+    logger.warning("Auth FAILED — no valid session or API key")
     raise HTTPException(status_code=401, detail="Authentication required")

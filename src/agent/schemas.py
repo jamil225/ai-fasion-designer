@@ -89,6 +89,7 @@ class ChatFinalResponse(BaseModel):
     applied_filters: SearchFilters | None = None
     latency_ms: int
     tool_trace: list[ToolTraceEntry]
+    guardrails_passed: bool = True
 
 
 class ChatInterruptResponse(BaseModel):
@@ -98,6 +99,7 @@ class ChatInterruptResponse(BaseModel):
     turn_count: int
     pending_action: PendingAction
     latency_ms: int
+    guardrails_passed: bool = True
 
 
 # ----- Agent state (PRD §State) -----

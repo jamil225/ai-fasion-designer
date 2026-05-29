@@ -22,6 +22,14 @@ from src.agent.schemas import (
     ToolTraceEntry,
 )
 from src.auth import verify_auth
+from src.config import GuardrailsConfig
+from src.agent.guardrails import GuardrailRegistry, OpenAIModerationGuardrail
+
+guardrails_config = GuardrailsConfig.load()
+guardrail_registry = GuardrailRegistry(guardrails_config)
+if guardrails_config.enabled and guardrails_config.input.enabled and guardrails_config.input.openai_moderation:
+    guardrail_registry.register_input_guardrail(OpenAIModerationGuardrail())
+
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/chat", tags=["chat"])
@@ -71,6 +79,8 @@ async def chat(body: dict = Body(...)) -> dict:
     if not thread_id or not isinstance(thread_id, str):
         raise HTTPException(status_code=400, detail="thread_id is required.")
 
+    log.info(">>> POST /v1/chat  thread=%s  type=%s", thread_id, "message" if has_message else "resume")
+
     config = {
         "configurable": {"thread_id": thread_id},
         "run_name": f"chat/{thread_id[:8]}",
@@ -84,6 +94,11 @@ async def chat(body: dict = Body(...)) -> dict:
             req = ChatRequest(thread_id=thread_id, message=body["message"])
             if len(req.message) > 500:
                 raise HTTPException(status_code=400, detail="message must be <= 500 characters.")
+                
+            guardrail_result = await guardrail_registry.run_input_guardrails(req.message)
+            if not guardrail_result.passed:
+                raise HTTPException(status_code=400, detail=guardrail_result.reason)
+                
             AGENT.invoke({"messages": [HumanMessage(content=req.message)]}, config=config)
         else:
             req = ChatResumeRequest(thread_id=thread_id, resume=body["resume"])
@@ -115,6 +130,7 @@ async def chat(body: dict = Body(...)) -> dict:
     if pending:
         question = pending.get("question") if isinstance(pending, dict) else str(pending)
         name = pending.get("type", "ask_user") if isinstance(pending, dict) else "ask_user"
+        log.info("<<< INTERRUPT  thread=%s  latency=%dms  action=%s", thread_id, latency_ms, name)
         return ChatInterruptResponse(
             thread_id=thread_id,
             request_id=request_id,
@@ -134,6 +150,7 @@ async def chat(body: dict = Body(...)) -> dict:
         if produced_combos else []
     )
 
+    log.info("<<< FINAL  thread=%s  latency=%dms  combos=%d  tools=%d", thread_id, latency_ms, len(combos), len(trace))
     return ChatFinalResponse(
         thread_id=thread_id,
         request_id=request_id,

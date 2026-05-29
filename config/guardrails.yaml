@@ -1,0 +1,9 @@
+guardrails:
+  enabled: false          # Master kill-switch. If false, ALL guardrails are bypassed.
+  
+  input:
+    enabled: true
+    openai_moderation: true
+    
+  output:
+    enabled: true

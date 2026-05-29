@@ -91,6 +91,7 @@ def query_vectors(
     filters: dict | None = None,
 ) -> list[dict]:
     index = get_index()
+    logger.info("Pinecone query: top_k=%d, has_filters=%s", top_k, filters is not None)
 
     query_params: dict = {
         "vector": vector,
@@ -101,6 +102,7 @@ def query_vectors(
         query_params["filter"] = filters
 
     response = index.query(**query_params)
+    logger.info("Pinecone query returned %d matches", len(response.matches))
 
     results = []
     for match in response.matches:

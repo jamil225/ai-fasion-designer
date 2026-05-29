@@ -2,11 +2,38 @@ from functools import lru_cache
 from pathlib import Path
 import tomllib
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, BaseModel
 from pydantic_settings import BaseSettings
+import yaml
 
 
 _APPLICATION_CONFIG_PATH = Path(__file__).resolve().parent.parent / "application.toml"
+_GUARDRAILS_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "guardrails.yaml"
+
+
+class InputGuardrailsConfig(BaseModel):
+    enabled: bool = True
+    openai_moderation: bool = True
+
+
+class OutputGuardrailsConfig(BaseModel):
+    enabled: bool = True
+
+
+class GuardrailsConfig(BaseModel):
+    enabled: bool = True
+    input: InputGuardrailsConfig = Field(default_factory=InputGuardrailsConfig)
+    output: OutputGuardrailsConfig = Field(default_factory=OutputGuardrailsConfig)
+
+    @classmethod
+    def load(cls) -> "GuardrailsConfig":
+        if not _GUARDRAILS_CONFIG_PATH.exists():
+            return cls()
+        with open(_GUARDRAILS_CONFIG_PATH, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+            if data and "guardrails" in data:
+                return cls(**data["guardrails"])
+            return cls()
 
 
 def _load_best_match_score_threshold() -> float:
