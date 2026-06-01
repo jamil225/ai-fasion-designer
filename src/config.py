@@ -48,8 +48,10 @@ def _load_best_match_score_threshold() -> float:
 
 
 class Settings(BaseSettings):
-    # Gemini LLM settings
-    gemini_api_key: str = ""
+    # Vertex AI settings (replaces direct Gemini API key)
+    google_cloud_project: str = ""
+    google_cloud_location: str = "us-central1"
+    google_genai_use_vertexai: bool = True
     # Vision model (needs multimodal capability) — flash-lite is cheapest
     vision_model_name: str = "gemini-2.5-flash-lite"
     # Merge model (text-only, can use same cheap model)

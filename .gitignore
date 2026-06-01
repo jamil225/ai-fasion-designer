@@ -34,3 +34,5 @@ GIT_STATUS_SUMMARY.md
 
 # Temporary / unused image folder (active fixtures live in test_images/)
 temp-images/
+/.idea
+/.junie

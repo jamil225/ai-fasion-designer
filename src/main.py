@@ -2,6 +2,12 @@ import logging
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# LangSmith reads LANGCHAIN_API_KEY / LANGCHAIN_TRACING_V2 from os.environ directly.
+# pydantic-settings doesn't populate os.environ, so load_dotenv() is required.
+load_dotenv()
+
 # Configure logging FIRST — before any src.* imports that emit startup logs.
 logging.basicConfig(
     level=logging.INFO,

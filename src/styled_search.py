@@ -51,7 +51,6 @@ def run_styled_search(
     enriched_query = request.query
     try:
         enriched_query = enrich_query(
-            api_key=settings.gemini_api_key,
             model_name=settings.search_enrichment_model_name,
             query=request.query,
         )
@@ -94,7 +93,6 @@ def run_styled_search(
 
     # Step 5: Stylist Agent — curate outfits from results
     stylist_output = curate_outfits(
-        api_key=settings.gemini_api_key,
         model_name=settings.stylist_model_name,
         original_query=request.query,
         products=results,

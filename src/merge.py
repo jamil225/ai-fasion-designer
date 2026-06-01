@@ -4,6 +4,8 @@ import time
 
 from google import genai
 
+from src.config import get_settings
+
 logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 3
@@ -40,12 +42,11 @@ Return ONLY valid JSON."""
 
 
 def merge_product_data(
-    api_key: str,
     model_name: str,
     vision_output: dict,
     csv_row: dict | None,
 ) -> dict:
-    """Merge vision output with vendor CSV data using Gemini as the merge LLM.
+    """Merge vision output with vendor CSV data using Gemini via Vertex AI.
 
     CSV corrects factual fields (colors, category, occasion).
     Vision provides descriptive fields (style_tags, caption, pattern, fabric_hint).
@@ -54,7 +55,8 @@ def merge_product_data(
     if csv_row is None:
         return _vision_only_fallback(vision_output)
 
-    client = genai.Client(api_key=api_key)
+    _s = get_settings()
+    client = genai.Client(vertexai=True, project=_s.google_cloud_project, location=_s.google_cloud_location)
 
     # Exclude pipeline fields from what we send to the LLM
     vision_for_merge = {

@@ -129,7 +129,6 @@ def enrich_query(
     with _trace("enrich_query") as entry:
         try:
             enriched_text: str = _qe_module.enrich_query(
-                api_key=settings.gemini_api_key,
                 model_name=settings.search_enrichment_model_name,
                 query=raw_query,
                 system_prompt=get_tool_prompt("query_enrichment_prompt"),
@@ -321,7 +320,6 @@ def curate_outfits(
                     for p in products
                 ]
                 raw_result = _legacy_stylist.curate_outfits(
-                    api_key=settings.gemini_api_key,
                     model_name=settings.stylist_model_name,
                     original_query="",  # agent does not pass original_query through this tool
                     products=products_as_dicts,

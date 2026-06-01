@@ -22,7 +22,9 @@ _settings = Settings()
 
 _LLM = ChatGoogleGenerativeAI(
     model=_settings.agent_model_name,
-    google_api_key=_settings.gemini_api_key,
+    vertexai=_settings.google_genai_use_vertexai,
+    project=_settings.google_cloud_project,
+    location=_settings.google_cloud_location,
     temperature=0,
 )
 log.info("Agent LLM loaded: model=%s", _settings.agent_model_name)

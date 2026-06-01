@@ -4,6 +4,8 @@ import time
 
 from google import genai
 
+from src.config import get_settings
+
 logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 3
@@ -95,20 +97,20 @@ def _prepare_products_for_prompt(products: list[dict]) -> str:
 
 
 def curate_outfits(
-    api_key: str,
     model_name: str,
     original_query: str,
     products: list[dict],
     combo_count: int,
     system_prompt: str | None = None,
 ) -> dict:
-    """Use Gemini Pro to curate outfit combinations from vector search results.
+    """Use Gemini Pro via Vertex AI to curate outfit combinations from vector search results.
 
     Returns a dict with 'combos' and 'standalone_outfits' arrays.
     Each combo references products by product_id only — the caller resolves
     these back to full product metadata.
     """
-    client = genai.Client(api_key=api_key)
+    _s = get_settings()
+    client = genai.Client(vertexai=True, project=_s.google_cloud_project, location=_s.google_cloud_location)
 
     effective_system_prompt = system_prompt if system_prompt is not None else STYLIST_SYSTEM_PROMPT
     products_json = _prepare_products_for_prompt(products)

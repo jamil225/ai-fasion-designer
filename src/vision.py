@@ -6,6 +6,8 @@ from pathlib import Path
 
 from google import genai
 
+from src.config import get_settings
+
 logger = logging.getLogger(__name__)
 
 VISION_PROMPT = """Analyze this garment image and return a JSON object with exactly these fields:
@@ -36,12 +38,12 @@ def _parse_vision_response(raw_text: str) -> dict:
 
 
 def extract_metadata(
-    api_key: str,
     image_path: Path,
     model_name: str,
 ) -> dict:
-    """Call Gemini vision model to extract raw visual metadata from an image."""
-    client = genai.Client(api_key=api_key)
+    """Call Gemini vision model via Vertex AI to extract raw visual metadata from an image."""
+    _s = get_settings()
+    client = genai.Client(vertexai=True, project=_s.google_cloud_project, location=_s.google_cloud_location)
 
     image_bytes = image_path.read_bytes()
     image_part = genai.types.Part.from_bytes(

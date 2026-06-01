@@ -3,6 +3,8 @@ import time
 
 from google import genai
 
+from src.config import get_settings
+
 logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 3
@@ -35,7 +37,6 @@ Expand this into a rich fashion search query."""
 
 
 def enrich_query(
-    api_key: str,
     model_name: str,
     query: str,
     *,
@@ -43,7 +44,7 @@ def enrich_query(
 ) -> str:
     """Enrich a user's raw fashion query into a semantically richer search string.
 
-    Uses Gemini to expand the query with inferred attributes, synonyms, and
+    Uses Gemini via Vertex AI to expand the query with inferred attributes, synonyms, and
     fashion vocabulary aligned with the embedding text format used at ingestion.
 
     system_prompt: optional override for the system prompt. Defaults to the
@@ -51,7 +52,8 @@ def enrich_query(
     are unaffected.
     """
     prompt = system_prompt if system_prompt is not None else QUERY_ENRICHMENT_SYSTEM_PROMPT
-    client = genai.Client(api_key=api_key)
+    _s = get_settings()
+    client = genai.Client(vertexai=True, project=_s.google_cloud_project, location=_s.google_cloud_location)
     user_message = QUERY_ENRICHMENT_USER_TEMPLATE.format(query=query)
 
     last_error: Exception | None = None

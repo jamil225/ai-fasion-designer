@@ -57,7 +57,13 @@ def _detect_interrupt(thread_id: str) -> Optional[dict]:
 def _final_text(state_values: dict) -> str:
     for msg in reversed(state_values.get("messages") or []):
         if isinstance(msg, AIMessage) and not getattr(msg, "tool_calls", None):
-            return msg.content if isinstance(msg.content, str) else str(msg.content)
+            if isinstance(msg.content, str):
+                return msg.content
+            if isinstance(msg.content, list):
+                return " ".join(
+                    block["text"] for block in msg.content
+                    if isinstance(block, dict) and block.get("type") == "text" and block.get("text")
+                )
     return ""
 
 
@@ -120,7 +126,7 @@ async def chat(body: dict = Body(...)) -> dict:
         raise
     except Exception as exc:
         log.exception("agent invoke failed on thread %s", thread_id)
-        raise HTTPException(status_code=500, detail=f"agent error: {exc!r}") from exc
+        raise HTTPException(status_code=500, detail="Internal server error. Please contact the administrator.") from exc
 
     latency_ms = int((time.perf_counter() - start) * 1000)
     sv = _read_state(thread_id)

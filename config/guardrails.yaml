@@ -1,5 +1,5 @@
 guardrails:
-  enabled: false          # Master kill-switch. If false, ALL guardrails are bypassed.
+  enabled: true           # Master kill-switch. If false, ALL guardrails are bypassed.
   
   input:
     enabled: true

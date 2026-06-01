@@ -158,8 +158,8 @@ def generate_angles(
     model_ref_part = _load_image_as_part(model_image_path)
     sari_ref_part = _load_image_as_part(sari_image_path)
 
-    # Init API client
-    client = genai.Client(api_key=config.GOOGLE_API_KEY)
+    # Init Vertex AI client (uses Application Default Credentials)
+    client = genai.Client(vertexai=True, project=config.GOOGLE_CLOUD_PROJECT, location=config.GOOGLE_CLOUD_LOCATION)
 
     results = {}
 
