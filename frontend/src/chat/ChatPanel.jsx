@@ -2,7 +2,39 @@ import { useState, useRef, useEffect } from "react";
 import { useChatState } from "./chatState";
 import InterruptCard from "./InterruptCard";
 import { getImageUrl } from "../api";
+import ImageLightbox from "../ImageLightbox";
 import "./ChatPanel.css";
+
+const THINKING_STAGES = [
+  { delay: 0,    text: "Checking your preferences…" },
+  { delay: 2800, text: "Building a search query…" },
+  { delay: 5000, text: "Searching the catalog…" },
+  { delay: 7000, text: "Curating outfit combinations…" },
+  { delay: 10000, text: "Almost there…" },
+];
+
+function useThinkingStage(isLoading) {
+  const [stage, setStage] = useState(null);
+  const timersRef = useRef([]);
+
+  useEffect(() => {
+    if (isLoading) {
+      setStage(THINKING_STAGES[0].text);
+      timersRef.current = THINKING_STAGES.slice(1).map(({ delay, text }) =>
+        setTimeout(() => setStage(text), delay)
+      );
+    } else {
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+      setStage(null);
+    }
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+    };
+  }, [isLoading]);
+
+  return stage;
+}
 
 function basename(path) {
   return (path || "").split("/").pop().split("\\").pop();
@@ -11,6 +43,7 @@ function basename(path) {
 function ComboItemImage({ item }) {
   const [imageUrl, setImageUrl] = useState(null);
   const [imageError, setImageError] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const filename = basename(item?.image_path);
 
   useEffect(() => {
@@ -40,13 +73,24 @@ function ComboItemImage({ item }) {
   }
 
   return (
-    <img
-      className="chat-combo-image"
-      src={imageUrl}
-      alt={item?.caption || item?.category || "Outfit item"}
-      loading="lazy"
-      onError={() => setImageError(true)}
-    />
+    <>
+      <img
+        className="chat-combo-image chat-combo-image-clickable"
+        src={imageUrl}
+        alt={item?.caption || item?.category || "Outfit item"}
+        loading="lazy"
+        onError={() => setImageError(true)}
+        onClick={() => setLightboxOpen(true)}
+        title="Click to enlarge"
+      />
+      {lightboxOpen && (
+        <ImageLightbox
+          src={imageUrl}
+          alt={item?.caption || item?.category}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -70,6 +114,7 @@ export default function ChatPanel() {
   ));
   const [input, setInput] = useState("");
   const messagesEndRef = useRef(null);
+  const thinkingStage = useThinkingStage(isLoading);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -179,12 +224,12 @@ export default function ChatPanel() {
           </div>
         ))}
 
-        {isLoading && (
-          <div className="chat-loading">
-            <span className="chat-loading-dots">
+        {thinkingStage && (
+          <div className="chat-bubble assistant chat-thinking-bubble">
+            <span className="chat-thinking-text">{thinkingStage}</span>
+            <span className="chat-loading-dots" aria-hidden="true">
               <span></span><span></span><span></span>
             </span>
-            Thinking...
           </div>
         )}
 

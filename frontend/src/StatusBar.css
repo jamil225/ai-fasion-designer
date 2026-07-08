@@ -26,7 +26,7 @@
 .status-spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(139, 92, 246, 0.2);
+  border: 2px solid rgba(163, 119, 77, 0.2);
   border-top-color: var(--accent-primary);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;

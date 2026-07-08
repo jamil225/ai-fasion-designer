@@ -194,6 +194,17 @@
   display: block;
 }
 
+/* Clickable combo images get a zoom cursor + ring on hover */
+.chat-combo-image-clickable {
+  cursor: zoom-in;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.chat-combo-image-clickable:hover {
+  box-shadow: 0 0 0 2px var(--accent-secondary);
+  transform: scale(1.05);
+}
+
 .chat-combo-image-placeholder {
   display: flex;
   flex-direction: column;
@@ -284,7 +295,7 @@
 
 .chat-input-bar input:focus {
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(163, 119, 77, 0.1);
 }
 
 .chat-input-bar input::placeholder {
@@ -314,7 +325,22 @@
   cursor: not-allowed;
 }
 
-/* ----- Loading indicator ----- */
+/* ----- Thinking bubble (fake progress) ----- */
+.chat-thinking-bubble {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  animation: fadeInUp 0.25s ease both;
+}
+
+.chat-thinking-text {
+  flex: 1;
+}
+
+/* ----- Loading indicator (kept for fallback) ----- */
 .chat-loading {
   display: flex;
   align-items: center;
@@ -418,7 +444,7 @@
 
 .interrupt-input-row input:focus {
   border-color: var(--warning);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+  box-shadow: 0 0 0 3px rgba(176, 136, 64, 0.12);
 }
 
 .interrupt-submit-btn {
