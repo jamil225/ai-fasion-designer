@@ -25,6 +25,7 @@ from src.auth import verify_auth
 from src.auth_routes import router as auth_router
 from src.config import Settings, get_settings
 from src.ingestion import get_job_status, run_ingestion
+from src.litellm_test import run_litellm_test
 from src.pinecone_client import check_connection, delete_all_vectors, init_pinecone
 from src.schemas import (
     HealthResponse,
@@ -32,6 +33,8 @@ from src.schemas import (
     IngestResponse,
     IngestStatus,
     IngestStatusResponse,
+    LiteLLMTestRequest,
+    LiteLLMTestResponse,
     SearchRequest,
     SearchResponse,
     StyledSearchRequest,
@@ -202,3 +205,15 @@ async def styled_search(
     settings: Settings = Depends(get_settings),
 ) -> StyledSearchResponse:
     return run_styled_search(settings=settings, request=request)
+
+
+@app.post(
+    "/v1/litellm-test",
+    response_model=LiteLLMTestResponse,
+    dependencies=[Depends(verify_auth)],
+)
+async def litellm_test(
+    request: LiteLLMTestRequest,
+    settings: Settings = Depends(get_settings),
+) -> LiteLLMTestResponse:
+    return run_litellm_test(settings=settings, request=request)
