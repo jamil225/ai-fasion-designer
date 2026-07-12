@@ -98,7 +98,7 @@ function ComboItemImage({ item }) {
  * ChatPanel - right-side rail docked into the existing search screen.
  * Self-contained: does NOT reuse ResultsGrid or ProductCard.
  */
-export default function ChatPanel() {
+export default function ChatPanel({ onCombosChange }) {
   const {
     messages,
     pendingInterrupt,
@@ -106,8 +106,9 @@ export default function ChatPanel() {
     error,
     send,
     resume,
+    stop,
     reset,
-  } = useChatState();
+  } = useChatState({ onCombosChange });
 
   const [isOpen, setIsOpen] = useState(() => (
     typeof window === "undefined" ? true : window.innerWidth >= 1080
@@ -143,7 +144,7 @@ export default function ChatPanel() {
         aria-label="Open AI stylist chat"
         title="Open AI stylist chat"
       >
-        Chat
+        <span className="chat-toggle-icon" aria-hidden="true">✦</span> Chat with AI Stylist
       </button>
     );
   }
@@ -258,14 +259,25 @@ export default function ChatPanel() {
             disabled={isLoading}
             autoComplete="off"
           />
-          <button
-            id="chat-send-btn"
-            type="submit"
-            className="chat-send-btn"
-            disabled={!input.trim() || isLoading}
-          >
-            Send
-          </button>
+          {isLoading ? (
+            <button
+              type="button"
+              className="chat-stop-btn"
+              onClick={stop}
+              aria-label="Stop generation"
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              id="chat-send-btn"
+              type="submit"
+              className="chat-send-btn"
+              disabled={!input.trim()}
+            >
+              Send
+            </button>
+          )}
         </form>
       )}
     </div>

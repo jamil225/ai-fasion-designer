@@ -6,12 +6,13 @@ const JSON_HEADERS = { "Content-Type": "application/json" };
 /**
  * POST /v1/chat — shape 1 (new message).
  */
-export async function sendMessage(threadId, text) {
+export async function sendMessage(threadId, text, signal) {
   const response = await fetch("/v1/chat", {
     method: "POST",
     headers: JSON_HEADERS,
     credentials: "include",
     body: JSON.stringify({ thread_id: threadId, message: text }),
+    signal,
   });
 
   if (!response.ok) {
@@ -25,7 +26,7 @@ export async function sendMessage(threadId, text) {
 /**
  * POST /v1/chat — shape 2 (resume after interrupt).
  */
-export async function sendResume(threadId, replyText) {
+export async function sendResume(threadId, replyText, signal) {
   const response = await fetch("/v1/chat", {
     method: "POST",
     headers: JSON_HEADERS,
@@ -36,6 +37,7 @@ export async function sendResume(threadId, replyText) {
         decisions: [{ type: "respond", message: replyText }],
       },
     }),
+    signal,
   });
 
   if (!response.ok) {

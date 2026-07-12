@@ -16,7 +16,7 @@ function generateThreadId() {
  * Returns { threadId, messages, pendingInterrupt, lastCombos, isLoading,
  *           error, send, resume, reset }
  */
-export function useChatState() {
+export function useChatState({ onCombosChange } = {}) {
   const [threadId, setThreadId] = useState(generateThreadId);
   const [messages, setMessages] = useState([]);
   const [pendingInterrupt, setPendingInterrupt] = useState(null);
@@ -26,6 +26,7 @@ export function useChatState() {
 
   // Guard against concurrent sends while a request is in-flight.
   const inflightRef = useRef(false);
+  const abortControllerRef = useRef(null);
 
   const _mergeResponse = useCallback((data) => {
     if (data.type === "interrupt") {
@@ -34,7 +35,12 @@ export function useChatState() {
     } else {
       // final
       setPendingInterrupt(null);
-      setLastCombos(data.combos || []);
+      const newCombos = data.combos || [];
+      setLastCombos(newCombos);
+      // Notify parent with new combos so canvas can display them
+      if (onCombosChange && newCombos.length > 0) {
+        onCombosChange(newCombos);
+      }
       // Append assistant message if present
       if (data.message) {
         setMessages((prev) => [
@@ -42,13 +48,13 @@ export function useChatState() {
           { 
             role: "assistant", 
             content: data.message, 
-            combos: data.combos || [],
+            combos: newCombos,
             guardrailsPassed: data.guardrails_passed
           },
         ]);
       }
     }
-  }, []);
+  }, [onCombosChange]);
 
   const send = useCallback(
     async (text) => {
@@ -60,11 +66,14 @@ export function useChatState() {
       // Append user bubble immediately
       setMessages((prev) => [...prev, { role: "user", content: text }]);
 
+      abortControllerRef.current = new AbortController();
       try {
-        const data = await sendMessage(threadId, text);
+        const data = await sendMessage(threadId, text, abortControllerRef.current.signal);
         _mergeResponse(data);
       } catch (err) {
-        setError(err.message);
+        if (err.name !== "AbortError") {
+          setError(err.message);
+        }
       } finally {
         setIsLoading(false);
         inflightRef.current = false;
@@ -83,11 +92,14 @@ export function useChatState() {
       // Append user reply bubble
       setMessages((prev) => [...prev, { role: "user", content: replyText }]);
 
+      abortControllerRef.current = new AbortController();
       try {
-        const data = await sendResume(threadId, replyText);
+        const data = await sendResume(threadId, replyText, abortControllerRef.current.signal);
         _mergeResponse(data);
       } catch (err) {
-        setError(err.message);
+        if (err.name !== "AbortError") {
+          setError(err.message);
+        }
       } finally {
         setIsLoading(false);
         inflightRef.current = false;
@@ -95,6 +107,13 @@ export function useChatState() {
     },
     [threadId, _mergeResponse],
   );
+
+  const stop = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
 
   const reset = useCallback(() => {
     setThreadId(generateThreadId());
@@ -104,7 +123,9 @@ export function useChatState() {
     setError(null);
     setIsLoading(false);
     inflightRef.current = false;
-  }, []);
+    // Clear canvas combos on reset
+    if (onCombosChange) onCombosChange([]);
+  }, [onCombosChange]);
 
   return {
     threadId,
@@ -115,6 +136,7 @@ export function useChatState() {
     error,
     send,
     resume,
+    stop,
     reset,
   };
 }
