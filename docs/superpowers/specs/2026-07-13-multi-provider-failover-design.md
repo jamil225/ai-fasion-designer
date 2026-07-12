@@ -79,7 +79,7 @@ New settings (safe defaults; secrets via env only):
 | Setting | Default | Purpose |
 |---|---|---|
 | `llm_primary_model` | `gemini-2.5-pro` | Single Vertex HIGH model (bare name; Router prepends `vertex_ai/`). |
-| `llm_fallback_model` | *(empty — must be set)* | Single OpenAI failover model id. **Must support tool-calling** (used by the agent too). "5.5/5.4" are not valid OpenAI ids — fill the real one. |
+| `llm_fallback_model` | *(empty — must be set)* | Single OpenAI failover model id. **Must support tool-calling** (used by the agent too). Chosen: **`gpt-5.6-terra`** (balanced GPT-5.6 variant, verified July 2026 — supports Functions). Set via `LLM_FALLBACK_MODEL`. |
 | `llm_fallback_enabled` | `True` | Master switch. `False` → Vertex-only, today's behavior. |
 | `llm_cooldown_seconds` | `60` | Router cooldown window for a failing deployment. |
 | `llm_allowed_fails` | `3` | Failures within the window before a deployment is cooled down. |
