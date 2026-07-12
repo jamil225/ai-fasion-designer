@@ -1,14 +1,8 @@
 import logging
-import time
 
-from google import genai
-
-from src.config import get_settings
+from src.llm_gateway import generate_text
 
 logger = logging.getLogger(__name__)
-
-MAX_RETRIES = 3
-BACKOFF_SECONDS = [1, 2, 4]
 
 QUERY_ENRICHMENT_SYSTEM_PROMPT = """You are a fashion search query expansion specialist. Your job is to take a user's natural language fashion query and expand it into a richer semantic search query that will match well against a fashion product database.
 
@@ -44,43 +38,27 @@ def enrich_query(
 ) -> str:
     """Enrich a user's raw fashion query into a semantically richer search string.
 
-    Uses Gemini via Vertex AI to expand the query with inferred attributes, synonyms, and
-    fashion vocabulary aligned with the embedding text format used at ingestion.
+    Delegates the LLM call to the gateway (backend configured via llm_backend) to expand
+    the query with inferred attributes, synonyms, and fashion vocabulary aligned with the
+    embedding text format used at ingestion.
 
     system_prompt: optional override for the system prompt. Defaults to the
     module-level QUERY_ENRICHMENT_SYSTEM_PROMPT constant so existing callers
     are unaffected.
     """
     prompt = system_prompt if system_prompt is not None else QUERY_ENRICHMENT_SYSTEM_PROMPT
-    _s = get_settings()
-    client = genai.Client(vertexai=True, project=_s.google_cloud_project, location=_s.google_cloud_location)
     user_message = QUERY_ENRICHMENT_USER_TEMPLATE.format(query=query)
 
-    last_error: Exception | None = None
-    for attempt in range(MAX_RETRIES):
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=[
-                    prompt + "\n\n" + user_message,
-                ],
-            )
-            enriched = response.text.strip()
-            logger.info(
-                "Query enrichment succeeded: original='%s' enriched='%s'",
-                query, enriched,
-            )
-            return enriched
-
-        except Exception as e:
-            last_error = e
-            logger.warning(
-                "Attempt %d/%d: Query enrichment error: %s",
-                attempt + 1, MAX_RETRIES, e,
-            )
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(BACKOFF_SECONDS[attempt])
-
-    raise RuntimeError(
-        f"Query enrichment failed after {MAX_RETRIES} attempts: {last_error}"
+    # Connectivity, retry/backoff and provider selection are owned by the gateway.
+    # On failure it raises LLMGatewayError (a RuntimeError), which callers already handle.
+    enriched = generate_text(
+        task="query_enrichment",
+        model=model_name,
+        system_prompt=prompt,
+        user_message=user_message,
+    ).strip()
+    logger.info(
+        "Query enrichment succeeded: original='%s' enriched='%s'",
+        query, enriched,
     )
+    return enriched

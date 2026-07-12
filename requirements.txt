@@ -13,3 +13,4 @@ langgraph
 langchain-google-genai>=4.0.0
 pyyaml>=6.0,<7.0
 langsmith
+litellm
