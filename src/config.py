@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     # LiteLLM sandbox endpoint model (vertex_ai/ prefix keeps calls on ADC + Vertex billing)
     litellm_test_model_name: str = "vertex_ai/gemini-2.5-flash"
 
+    # LLM gateway backend selector — "vertex" (default, cheapest via ADC) or "litellm".
+    # Global switch: all gateway text calls use this backend. Per-task model names are
+    # unchanged (search_enrichment_model_name, stylist_model_name, etc.).
+    llm_backend: str = "vertex"
+
     # Virtual try-on
     default_model_image_path: str = ""
     tryon_output_dir: str = "generated_tryons"

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.prebuilt import create_react_agent
 
@@ -16,15 +15,16 @@ from src.agent.tools import (
     search_products,
 )
 from src.config import Settings
+from src.llm_gateway import get_chat_model
 
 log = logging.getLogger(__name__)
 _settings = Settings()
 
-_LLM = ChatGoogleGenerativeAI(
+# Chat model comes through the gateway so the agent's provider is swappable in one place.
+# (Currently the gateway serves a Vertex chat model; LiteLLM chat-model support is deferred.)
+_LLM = get_chat_model(
+    task="agent",
     model=_settings.agent_model_name,
-    vertexai=_settings.google_genai_use_vertexai,
-    project=_settings.google_cloud_project,
-    location=_settings.google_cloud_location,
     temperature=0,
 )
 log.info("Agent LLM loaded: model=%s", _settings.agent_model_name)
