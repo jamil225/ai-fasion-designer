@@ -69,9 +69,14 @@ def build_chat_model(settings: Settings, *, temperature: float = 0):
 
     from langchain_openai import ChatOpenAI
 
+    # reasoning_effort="none" is required for function/tool calling on the GPT-5.6
+    # reasoning models via /v1/chat/completions (OpenAI rejects tools otherwise).
+    # The agent binds tools, so this keeps the fallback tool-callable. Harmless if the
+    # model is later swapped for a non-reasoning one that ignores the param.
     fallback = ChatOpenAI(
         model=settings.llm_fallback_model,
         api_key=settings.openai_api_key,
         temperature=temperature,
+        reasoning_effort="none",
     )
     return base.with_fallbacks([fallback])
