@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     # LiteLLM Router cooldown: park a deployment for N seconds after allowed_fails failures.
     llm_cooldown_seconds: int = 60
     llm_allowed_fails: int = 3
+    # Agent OpenAI fallback reasoning level via the Responses API: none|low|medium|high.
+    # The agent fallback uses /v1/responses so reasoning + tool-calling work together
+    # (gpt-5.6 reasoning models reject tools on /v1/chat/completions unless effort=none).
+    llm_fallback_reasoning_effort: str = "medium"
 
     # LLM gateway backend selector — "vertex" (default, cheapest via ADC) or "litellm".
     # Global switch: all gateway text calls use this backend. Per-task model names are
