@@ -1,133 +1,77 @@
-"""LLM provider strategies.
+"""Provider construction for the LLM gateway.
 
-Each provider implements the same small contract (`LLMProvider`), so adding a new
-backend is a new class here — existing providers and the gateway facade stay untouched
-(Open/Closed). Providers own ONLY the raw transport to a model; retry/backoff, error
-wrapping and logging live in the gateway facade (`gateway.py`).
+Two builders — one per engine:
+  * build_text_router  -> LiteLLM Router (Vertex primary, OpenAI fallback, cooldown)
+  * build_chat_model   -> LangChain chat model (Vertex) with OpenAI fallback for the agent
+
+Functions, not strategy classes (CLAUDE.md §8). No shims (DEC-023): both use the
+providers' native mechanisms (LiteLLM Router fallbacks; LangChain with_fallbacks).
 """
 
 from __future__ import annotations
 
-from typing import Protocol
+from src.config import Settings
 
-from src.config import Settings, get_settings
-
-
-class LLMProvider(Protocol):
-    """Transport contract every backend must satisfy."""
-
-    def generate_text(
-        self,
-        *,
-        model: str,
-        system_prompt: str,
-        user_message: str,
-        temperature: float | None,
-    ) -> str: ...
-
-    def get_chat_model(self, *, model: str, temperature: float):
-        """Return a LangChain BaseChatModel for tool-calling agents."""
-        ...
+# Router group names (used by gateway.generate_text).
+PRIMARY_GROUP = "vertex-high"
+FALLBACK_GROUP = "openai-fallback"
 
 
-class VertexProvider:
-    """Google Vertex AI via ADC — the default, cheapest path."""
+def build_text_router(settings: Settings):
+    """Build a LiteLLM Router: Vertex-high primary, OpenAI fallback, per-request + cooldown."""
+    from litellm import Router
 
-    def _settings(self) -> Settings:
-        return get_settings()
-
-    def generate_text(
-        self,
-        *,
-        model: str,
-        system_prompt: str,
-        user_message: str,
-        temperature: float | None,
-    ) -> str:
-        # Imported lazily so switching to the litellm backend doesn't require google-genai
-        # at call time (and vice-versa).
-        from google import genai
-
-        s = self._settings()
-        client = genai.Client(
-            vertexai=True,
-            project=s.google_cloud_project,
-            location=s.google_cloud_location,
-        )
-        # Single concatenated content string — byte-identical to the pre-gateway callers.
-        contents = [system_prompt + "\n\n" + user_message]
-        config = None
-        if temperature is not None:
-            from google.genai import types
-
-            config = types.GenerateContentConfig(temperature=temperature)
-        response = client.models.generate_content(
-            model=model,
-            contents=contents,
-            config=config,
-        )
-        return response.text
-
-    def get_chat_model(self, *, model: str, temperature: float):
-        from langchain_google_genai import ChatGoogleGenerativeAI
-
-        s = self._settings()
-        return ChatGoogleGenerativeAI(
-            model=model,
-            vertexai=s.google_genai_use_vertexai,
-            project=s.google_cloud_project,
-            location=s.google_cloud_location,
-            temperature=temperature,
-        )
-
-
-class LiteLLMProvider:
-    """LiteLLM transport — opt-in for provider-abstraction learning/experiments.
-
-    Text generation routes Gemini through Vertex (ADC, same billing) via the
-    `vertex_ai/` model prefix, so per-task config model names stay bare and work for
-    both backends. Chat-model construction is intentionally unsupported (see gateway
-    scope note): ChatLiteLLM + Vertex Gemini tool-calling has open upstream bugs.
-    """
-
-    def _settings(self) -> Settings:
-        return get_settings()
-
-    def generate_text(
-        self,
-        *,
-        model: str,
-        system_prompt: str,
-        user_message: str,
-        temperature: float | None,
-    ) -> str:
-        import litellm
-
-        s = self._settings()
-        # Bare config names (e.g. "gemini-2.5-flash") become "vertex_ai/gemini-2.5-flash"
-        # so LiteLLM uses Vertex + ADC rather than a separate AI Studio key.
-        litellm_model = model if "/" in model else f"vertex_ai/{model}"
-        kwargs: dict = {
-            "model": litellm_model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            "vertex_project": s.google_cloud_project,
-            "vertex_location": s.google_cloud_location,
+    model_list = [
+        {
+            "model_name": PRIMARY_GROUP,
+            "litellm_params": {
+                "model": f"vertex_ai/{settings.llm_primary_model}",
+                "vertex_project": settings.google_cloud_project,
+                "vertex_location": settings.google_cloud_location,
+            },
         }
-        if temperature is not None:
-            kwargs["temperature"] = temperature
-        response = litellm.completion(**kwargs)
-        return response.choices[0].message.content
-
-    def get_chat_model(self, *, model: str, temperature: float):
-        # Deferred: ChatLiteLLM + vertex_ai/gemini-* + tool-calling has open 2026 bugs
-        # (tool_choice="any" unsupported, null/malformed tool-call responses). The agent
-        # stays on Vertex. Import here to avoid a hard dependency at module load.
-        from src.llm_gateway.gateway import LLMGatewayError
-
-        raise LLMGatewayError(
-            "LiteLLM chat model is not supported yet; the agent uses the vertex backend. "
-            "Set llm_backend=vertex for agent chat, or use generate_text for text tasks."
+    ]
+    fallbacks: list = []
+    if settings.llm_fallback_enabled and settings.llm_fallback_model:
+        model_list.append(
+            {
+                "model_name": FALLBACK_GROUP,
+                "litellm_params": {
+                    "model": f"openai/{settings.llm_fallback_model}",
+                    "api_key": settings.openai_api_key,
+                },
+            }
         )
+        fallbacks = [{PRIMARY_GROUP: [FALLBACK_GROUP]}]
+
+    return Router(
+        model_list=model_list,
+        fallbacks=fallbacks,
+        allowed_fails=settings.llm_allowed_fails,
+        cooldown_time=settings.llm_cooldown_seconds,
+        num_retries=3,
+    )
+
+
+def build_chat_model(settings: Settings, *, temperature: float = 0):
+    """Build the agent chat model: Vertex primary with a native OpenAI fallback chain."""
+    from langchain_google_genai import ChatGoogleGenerativeAI
+
+    base = ChatGoogleGenerativeAI(
+        model=settings.llm_primary_model,
+        vertexai=settings.google_genai_use_vertexai,
+        project=settings.google_cloud_project,
+        location=settings.google_cloud_location,
+        temperature=temperature,
+    )
+    if not settings.llm_fallback_enabled or not settings.llm_fallback_model:
+        return base
+
+    from langchain_openai import ChatOpenAI
+
+    fallback = ChatOpenAI(
+        model=settings.llm_fallback_model,
+        api_key=settings.openai_api_key,
+        temperature=temperature,
+    )
+    return base.with_fallbacks([fallback])
