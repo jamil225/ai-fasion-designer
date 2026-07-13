@@ -1,6 +1,6 @@
 # Multi-Provider LLM Failover Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add automatic OpenAI failover behind the existing `src/llm_gateway/` facade so text tasks and the agent keep working when Vertex/Gemini fails.
 
@@ -30,7 +30,7 @@
 **Interfaces:**
 - Produces: `Settings.llm_primary_model: str`, `Settings.llm_fallback_model: str`, `Settings.llm_fallback_enabled: bool`, `Settings.llm_cooldown_seconds: int`, `Settings.llm_allowed_fails: int`. Existing `openai_api_key`, `google_cloud_project`, `google_cloud_location` reused.
 
-- [ ] **Step 1: Add settings + mark dormant ones**
+- [x] **Step 1: Add settings + mark dormant ones**
 
 In `src/config.py`, inside `class Settings`, add:
 
@@ -59,7 +59,7 @@ Then above the existing per-task model settings (`search_enrichment_model_name`,
 
 Leave `llm_backend` as-is but append to its comment: `# superseded for text by the Router; retained.`
 
-- [ ] **Step 2: Smoke-check the settings load**
+- [x] **Step 2: Smoke-check the settings load**
 
 Run:
 ```bash
@@ -67,7 +67,7 @@ venv/bin/python -c "from src.config import get_settings; s=get_settings(); print
 ```
 Expected: `gemini-2.5-pro True 3 60 ''` (fallback model empty until set in `.env`).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/config.py
@@ -84,7 +84,7 @@ git commit -m "feat(llm): add multi-provider failover settings; mark per-task mo
 **Interfaces:**
 - Produces: `register_llm_callbacks() -> None` — idempotent; registers a cost-logging success callback and (if LangSmith env is present) the LiteLLM `"langsmith"` integration.
 
-- [ ] **Step 1: Create the callbacks module**
+- [x] **Step 1: Create the callbacks module**
 
 Create `src/llm_gateway/callbacks.py`:
 
@@ -137,7 +137,7 @@ def register_llm_callbacks() -> None:
     logger.info("llm_gateway: cost tracking callback registered")
 ```
 
-- [ ] **Step 2: Smoke-check registration**
+- [x] **Step 2: Smoke-check registration**
 
 Run:
 ```bash
@@ -145,7 +145,7 @@ venv/bin/python -c "from src.llm_gateway.callbacks import register_llm_callbacks
 ```
 Expected: prints `['_log_cost']` (or `['_log_cost', 'langsmith']` if LangSmith env is set). No exception.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/llm_gateway/callbacks.py
@@ -164,7 +164,7 @@ git commit -m "feat(llm): add LiteLLM cost-tracking + LangSmith callback registr
 - Consumes: `Settings` (Task 1 fields).
 - Produces: `build_text_router(settings: Settings) -> litellm.Router` with model group `"vertex-high"` and fallback `"openai-fallback"`; `build_chat_model(settings: Settings)` returning a LangChain `Runnable`/`BaseChatModel` (Vertex, optionally `.with_fallbacks([ChatOpenAI])`).
 
-- [ ] **Step 1: Add the langchain-openai dependency**
+- [x] **Step 1: Add the langchain-openai dependency**
 
 In `requirements.txt` add on its own line:
 ```
@@ -176,7 +176,7 @@ venv/bin/pip install langchain-openai
 ```
 Expected: installs successfully (pulls a langchain-openai compatible with the pinned langchain).
 
-- [ ] **Step 2: Rewrite providers.py as builder functions**
+- [x] **Step 2: Rewrite providers.py as builder functions**
 
 Replace the entire contents of `src/llm_gateway/providers.py` with:
 
@@ -260,7 +260,7 @@ def build_chat_model(settings: Settings, *, temperature: float = 0):
     return base.with_fallbacks([fallback])
 ```
 
-- [ ] **Step 3: Smoke-check the builders (no network calls)**
+- [x] **Step 3: Smoke-check the builders (no network calls)**
 
 Run:
 ```bash
@@ -268,7 +268,7 @@ venv/bin/python -c "from src.config import get_settings; from src.llm_gateway.pr
 ```
 Expected: with no `LLM_FALLBACK_MODEL` set → `router_groups= ['vertex-high']` and `chat_type= ChatGoogleGenerativeAI`. With `LLM_FALLBACK_MODEL=gpt-5.6-terra` set → `router_groups= ['openai-fallback', 'vertex-high']` and `chat_type= RunnableWithFallbacks`. Constructing must not make network calls.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add requirements.txt src/llm_gateway/providers.py
@@ -287,7 +287,7 @@ git commit -m "feat(llm): Router + chat-model builders with OpenAI fallback (rep
 - Consumes: `build_text_router`, `build_chat_model`, `PRIMARY_GROUP` (Task 3); `register_llm_callbacks` (Task 2); `Settings` (Task 1).
 - Produces: unchanged public API `generate_text(...) -> str`, `get_chat_model(...)`, `LLMGatewayError`.
 
-- [ ] **Step 1: Rewrite gateway.py**
+- [x] **Step 1: Rewrite gateway.py**
 
 Replace the entire contents of `src/llm_gateway/gateway.py` with:
 
@@ -377,7 +377,7 @@ def get_chat_model(*, task: str, model: str, temperature: float = 0):
     return build_chat_model(get_settings(), temperature=temperature)
 ```
 
-- [ ] **Step 2: Confirm the package still imports and exports are intact**
+- [x] **Step 2: Confirm the package still imports and exports are intact**
 
 Run:
 ```bash
@@ -385,7 +385,7 @@ venv/bin/python -c "import src.llm_gateway as g; print(sorted(g.__all__)); print
 ```
 Expected: `['LLMGatewayError', 'generate_text', 'get_chat_model']` then `True True True`.
 
-- [ ] **Step 3: Confirm the agent graph still builds (imports get_chat_model at module load)**
+- [x] **Step 3: Confirm the agent graph still builds (imports get_chat_model at module load)**
 
 Run:
 ```bash
@@ -393,14 +393,14 @@ venv/bin/python -c "import src.agent.graph as gr; print('agent graph import OK')
 ```
 Expected: `agent graph import OK` (this exercises `get_chat_model(task='agent', ...)` at import; requires ADC creds present, as today).
 
-- [ ] **Step 4: Update the knowledge graph**
+- [x] **Step 4: Update the knowledge graph**
 
 ```bash
 graphify update .
 ```
 Expected: completes (AST-only, no API cost).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/llm_gateway/gateway.py graphify-out
@@ -414,7 +414,7 @@ git commit -m "feat(llm): route text via Router + agent via fallback chain; drop
 **Files:**
 - Modify: `.env.example`
 
-- [ ] **Step 1: Add the new vars**
+- [x] **Step 1: Add the new vars**
 
 In `.env.example`, under the OpenAI section (or a new `# LLM failover` block), add:
 
@@ -429,7 +429,7 @@ LLM_COOLDOWN_SECONDS=60
 LLM_ALLOWED_FAILS=3
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add .env.example
@@ -442,31 +442,31 @@ git commit -m "docs(env): document LLM failover settings"
 
 **Files:** none (verification only). Uses a running server on port 8083 and a real `.env` with `OPENAI_API_KEY` + `LLM_FALLBACK_MODEL` set.
 
-- [ ] **Step 1: Happy path (Vertex primary)**
+- [x] **Step 1: Happy path (Vertex primary)**
 
 Start the server: `PORT=8083 venv/bin/uvicorn src.main:app --port 8083 --reload`.
 Call `POST /v1/search/styled` (Swagger UI) with a normal query. Expected: 200 with enriched results. Server log shows `llm_gateway ok` and an `llm_cost` line.
 
-- [ ] **Step 2: Text failover**
+- [x] **Step 2: Text failover**
 
 Stop server. Set `LLM_PRIMARY_MODEL=bogus-model-xyz` in `.env`. Restart. Repeat the styled-search call.
 Expected: still 200 with results — served by OpenAI. Log shows a Router fallback and `used_model` is the OpenAI model. Confirms per-request fallback for text.
 
-- [ ] **Step 3: Agent failover**
+- [x] **Step 3: Agent failover**
 
 With the bogus primary still set, call `POST /v1/chat` with `{"message":"casual suit for men"}`.
 Expected: completes a tool-calling run (enrich → search → curate) via OpenAI; response `type:final` with combos. Confirms the LangChain fallback chain preserves tool-calling.
 
-- [ ] **Step 4: Both-fail graceful degradation**
+- [x] **Step 4: Both-fail graceful degradation**
 
 Also set `LLM_FALLBACK_MODEL=bogus-openai-xyz`. Restart. Repeat styled search.
 Expected: no crash — enrichment degrades to the raw query (per existing caller handling); stylist returns fallback combos. HTTP still 200.
 
-- [ ] **Step 5: Kill switch**
+- [x] **Step 5: Kill switch**
 
 Restore real models. Set `LLM_FALLBACK_ENABLED=false`. Restart. Confirm normal operation and that the Router has no fallback group (Vertex-only). Then restore `.env` to real values + `true`.
 
-- [ ] **Step 6: Record results in the session log**
+- [x] **Step 6: Record results in the session log**
 
 Append a dated entry to `.claude-session-log.md` (gitignored) summarizing which of steps 1–5 passed and any surprises.
 
