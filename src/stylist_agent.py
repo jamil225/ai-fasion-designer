@@ -103,7 +103,7 @@ def curate_outfits(
 ) -> dict:
     """Curate outfit combinations from vector search results via the LLM gateway.
 
-    The LLM call (backend configured via llm_backend) returns JSON that this function
+    The LLM call (via the gateway: Vertex primary, OpenAI failover) returns JSON that this function
     parses. Returns a dict with 'combos' and 'standalone_outfits' arrays.
     Each combo references products by product_id only — the caller resolves
     these back to full product metadata.

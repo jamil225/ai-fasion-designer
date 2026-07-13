@@ -10,6 +10,7 @@ re-enabling per-task tiers later is a config change, not a caller change.
 from __future__ import annotations
 
 import logging
+import threading
 import time
 
 from src.config import get_settings
@@ -19,6 +20,7 @@ from src.llm_gateway.providers import PRIMARY_GROUP, build_chat_model, build_tex
 logger = logging.getLogger(__name__)
 
 _router = None
+_router_lock = threading.Lock()
 
 
 class LLMGatewayError(RuntimeError):
@@ -29,11 +31,17 @@ class LLMGatewayError(RuntimeError):
 
 
 def _get_router():
-    """Lazily build + cache the text Router, registering observability callbacks once."""
+    """Lazily build + cache the text Router, registering observability callbacks once.
+
+    Double-checked locking: FastAPI runs sync handlers in a threadpool, so concurrent
+    first requests could otherwise each build a Router and race on the module globals.
+    """
     global _router
     if _router is None:
-        register_llm_callbacks()
-        _router = build_text_router(get_settings())
+        with _router_lock:
+            if _router is None:
+                register_llm_callbacks()
+                _router = build_text_router(get_settings())
     return _router
 
 
@@ -70,7 +78,9 @@ def generate_text(
     latency_ms = int((time.monotonic() - start) * 1000)
     used_model = getattr(response, "model", "?")
     logger.info("llm_gateway ok — task=%s model=%s latency_ms=%d", task, used_model, latency_ms)
-    return response.choices[0].message.content
+    # Guard the `-> str` contract: a completion can carry content=None; callers call
+    # .strip() and only catch RuntimeError, so an AttributeError here would escape.
+    return response.choices[0].message.content or ""
 
 
 def get_chat_model(*, task: str, model: str, temperature: float = 0):

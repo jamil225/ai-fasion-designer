@@ -38,7 +38,7 @@ def enrich_query(
 ) -> str:
     """Enrich a user's raw fashion query into a semantically richer search string.
 
-    Delegates the LLM call to the gateway (backend configured via llm_backend) to expand
+    Delegates the LLM call to the gateway (Vertex primary, OpenAI failover) to expand
     the query with inferred attributes, synonyms, and fashion vocabulary aligned with the
     embedding text format used at ingestion.
 

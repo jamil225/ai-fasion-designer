@@ -39,6 +39,9 @@ def build_text_router(settings: Settings):
                 "litellm_params": {
                     "model": f"openai/{settings.llm_fallback_model}",
                     "api_key": settings.openai_api_key,
+                    # gpt-5.6 reasoning models: disable reasoning on the text path too, so
+                    # failed-over text calls stay fast/cheap and don't return empty content.
+                    "reasoning_effort": "none",
                 },
             }
         )
