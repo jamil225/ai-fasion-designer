@@ -46,6 +46,9 @@ from src.styled_search import run_styled_search
 # Activate LangSmith tracing — must set os.environ BEFORE langsmith is imported
 # by any route handler, so we do it here at module load time.
 def _configure_langsmith() -> None:
+    """
+    Configure LangSmith tracing from application settings and verify connectivity when enabled.
+    """
     from src.config import get_settings
     s = get_settings()
     if s.langchain_tracing_v2 and s.langchain_api_key:
@@ -204,6 +207,15 @@ async def styled_search(
     request: StyledSearchRequest,
     settings: Settings = Depends(get_settings),
 ) -> StyledSearchResponse:
+    """Run a styled fashion search using the provided request and application settings.
+    
+    Parameters:
+        request (StyledSearchRequest): Search criteria and styling preferences.
+        settings (Settings): Application configuration used to perform the search.
+    
+    Returns:
+        StyledSearchResponse: Styled search results.
+    """
     return run_styled_search(settings=settings, request=request)
 
 
@@ -216,4 +228,13 @@ async def litellm_test(
     request: LiteLLMTestRequest,
     settings: Settings = Depends(get_settings),
 ) -> LiteLLMTestResponse:
+    """
+    Run a LiteLLM test with the provided request and application settings.
+    
+    Parameters:
+        request (LiteLLMTestRequest): Test request parameters.
+    
+    Returns:
+        LiteLLMTestResponse: The LiteLLM test result.
+    """
     return run_litellm_test(settings=settings, request=request)

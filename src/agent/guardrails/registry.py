@@ -8,6 +8,12 @@ logger = logging.getLogger(__name__)
 
 class GuardrailRegistry:
     def __init__(self, config: GuardrailsConfig):
+        """
+        Initialize a guardrail registry with the specified configuration.
+        
+        Parameters:
+        	config (GuardrailsConfig): Configuration controlling guardrail execution.
+        """
         self.config = config
         self.input_guardrails: List[BaseGuardrail] = []
         self.output_guardrails: List[BaseGuardrail] = []
@@ -15,14 +21,34 @@ class GuardrailRegistry:
                      config.enabled, config.input.enabled, config.output.enabled)
 
     def register_input_guardrail(self, guardrail: BaseGuardrail) -> None:
+        """
+        Register an input guardrail for subsequent request validation.
+        
+        Parameters:
+        	guardrail (BaseGuardrail): The input guardrail to register.
+        """
         self.input_guardrails.append(guardrail)
         logger.info("Registered input guardrail: %s", type(guardrail).__name__)
 
     def register_output_guardrail(self, guardrail: BaseGuardrail) -> None:
+        """Register an output guardrail for subsequent validation.
+        
+        Parameters:
+        	guardrail (BaseGuardrail): The output guardrail to register.
+        """
         self.output_guardrails.append(guardrail)
         logger.info("Registered output guardrail: %s", type(guardrail).__name__)
 
     async def run_input_guardrails(self, request_body: str) -> GuardrailResult:
+        """
+        Run the registered input guardrails against a request body.
+        
+        Parameters:
+        	request_body (str): The request content to validate.
+        
+        Returns:
+        	GuardrailResult: The first failed validation result, or a passing result when all checks pass or guardrails are disabled.
+        """
         if not self.config.enabled or not self.config.input.enabled:
             logger.info("Input guardrails BYPASSED (disabled by config)")
             return GuardrailResult(passed=True)

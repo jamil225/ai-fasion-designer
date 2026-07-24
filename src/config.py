@@ -27,6 +27,12 @@ class GuardrailsConfig(BaseModel):
 
     @classmethod
     def load(cls) -> "GuardrailsConfig":
+        """
+        Load guardrails configuration from the YAML configuration file.
+        
+        Returns:
+        	GuardrailsConfig: The configured guardrails settings, or default settings when the file is missing or does not contain a top-level ``guardrails`` section.
+        """
         if not _GUARDRAILS_CONFIG_PATH.exists():
             return cls()
         with open(_GUARDRAILS_CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -37,6 +43,12 @@ class GuardrailsConfig(BaseModel):
 
 
 def _load_best_match_score_threshold() -> float:
+    """
+    Load the configured best-match score threshold from the application configuration.
+    
+    Returns:
+        float: The configured threshold, or 0.20 when the configuration file or setting is unavailable.
+    """
     if not _APPLICATION_CONFIG_PATH.exists():
         return 0.20
 
@@ -111,6 +123,14 @@ class Settings(BaseSettings):
     @field_validator("agent_required_search_fields", mode="before")
     @classmethod
     def _parse_required_search_fields(cls, v: object) -> object:
+        """Normalize required search fields provided as a comma-separated string.
+        
+        Parameters:
+            v (object): A comma-separated field string or an existing value.
+        
+        Returns:
+            object: A list of trimmed, non-empty field names for string input; otherwise, the original value.
+        """
         if isinstance(v, str):
             return [f.strip() for f in v.split(",") if f.strip()]
         return v

@@ -37,6 +37,11 @@ class LLMGatewayError(RuntimeError):
 
 
 def _resolve_provider() -> tuple[str, LLMProvider]:
+    """Resolve the configured language model provider.
+    
+    Returns:
+    	(tuple[str, LLMProvider]): The configured backend name and its provider.
+    """
     backend = get_settings().llm_backend
     provider = _PROVIDERS.get(backend)
     if provider is None:
@@ -54,10 +59,20 @@ def generate_text(
     user_message: str,
     temperature: float | None = None,
 ) -> str:
-    """Generate text from the configured backend with centralized retry/backoff.
-
-    `task` is a caller label used only for logging/tracing metadata.
-    Raises LLMGatewayError if every attempt fails.
+    """Generate text using the configured backend with centralized retries.
+    
+    Parameters:
+        task (str): Caller label included in gateway metadata.
+        model (str): Model identifier.
+        system_prompt (str): System instruction for the model.
+        user_message (str): User message to process.
+        temperature (float | None): Optional sampling temperature.
+    
+    Returns:
+        str: Generated text.
+    
+    Raises:
+        LLMGatewayError: If all configured retry attempts fail.
     """
     backend, provider = _resolve_provider()
     start = time.monotonic()
@@ -93,13 +108,18 @@ def generate_text(
 
 
 def get_chat_model(*, task: str, model: str, temperature: float = 0):
-    """Return a LangChain BaseChatModel for tool-calling agents.
-
-    Chat models are Vertex-pinned for now: LiteLLM chat-model support is deferred due to
-    open Vertex+tool-calling bugs in ChatLiteLLM (see providers.LiteLLMProvider). The
-    global `llm_backend` switch therefore governs text generation only — flipping it to
-    `litellm` must NOT break the agent, so chat always resolves to the vertex provider.
-    When LiteLLM chat support is added, route this through `_resolve_provider()` too.
+    """
+    Provide the Vertex chat model used by tool-calling agents.
+    
+    The chat model is always resolved from the Vertex provider, regardless of the configured text-generation backend.
+    
+    Parameters:
+        task (str): Label identifying the agent task.
+        model (str): Model name to use.
+        temperature (float): Sampling temperature.
+    
+    Returns:
+        BaseChatModel: A Vertex chat model configured for the requested model and temperature.
     """
     configured_backend = get_settings().llm_backend
     if configured_backend != "vertex":

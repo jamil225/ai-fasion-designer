@@ -1,8 +1,11 @@
 import { useState } from "react";
 
 /**
- * InterruptCard - renders when the agent pauses to ask for clarification.
- * Shows the question prominently and provides a reply input + submit button.
+ * Renders a clarification question with a text field for submitting a reply.
+ * @param {string} question - The clarification question to display.
+ * @param {function(string): void} onSubmit - Called with the trimmed reply.
+ * @param {boolean} isLoading - Disables reply input and submission while loading.
+ * @returns {JSX.Element} The clarification card.
  */
 export default function InterruptCard({ question, onSubmit, isLoading }) {
   const [reply, setReply] = useState("");

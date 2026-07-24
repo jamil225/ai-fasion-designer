@@ -17,6 +17,12 @@ except ImportError:
     # Graceful fallback if langsmith not installed
     def _traceable(**_kw):  # type: ignore[misc]
         def _wrap(fn):
+            """
+            Return the function unchanged.
+            
+            Returns:
+                The original function.
+            """
             return fn
         return _wrap
 
@@ -54,11 +60,17 @@ def _span_combo_results(combos: list[dict]) -> dict:
 
 @contextmanager
 def _trace(tool_name: str) -> Iterator[dict[str, Any]]:
-    """Capture latency and error for a single tool call.
-
-    Caller wraps the resulting dict in a ToolTraceEntry and appends it to
-    state['tool_trace'] via Command(update=...).  The operator.add reducer on
-    that field ensures concurrent appends concatenate rather than overwrite.
+    """
+    Capture timing and errors for a tool execution.
+    
+    Parameters:
+        tool_name (str): Name of the tool being measured.
+    
+    Yields:
+        dict[str, Any]: Trace entry containing the tool name, error status, and elapsed latency in milliseconds.
+    
+    Raises:
+        Exception: Re-raises any exception raised during the tool execution after recording it.
     """
     start = time.perf_counter()
     entry: dict[str, Any] = {"tool_name": tool_name, "error": None}
@@ -77,10 +89,11 @@ def check_required_fields(
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> Command:
-    """Check whether all required search fields are present in gathered_slots.
-
-    Returns a SlotCheckResult with all_filled, missing_fields, and gathered_slots.
-    Pure Python — no LLM call, cannot fail.
+    """
+    Check whether all required search fields have been gathered.
+    
+    Returns:
+        Command: A state update containing the serialized slot check result and tool trace.
     """
     with _trace("check_required_fields") as entry:
         gathered: dict[str, str] = dict(state.get("gathered_slots") or {})
@@ -108,7 +121,15 @@ def check_required_fields(
 
 @tool
 def ask_user(question: str) -> str:
-    """Ask the user a single consolidated clarifying question that covers ALL missing required slots. The agent must NOT split missing slots across multiple ask_user calls — one question covers them all."""
+    """
+    Pause the workflow to request the user's answer to a consolidated clarifying question.
+    
+    Parameters:
+        question (str): The clarifying question covering the required information.
+    
+    Returns:
+        str: The user's response.
+    """
     # v0.3 HITL primitive: interrupt() pauses the graph, surfaces the payload
     # via __interrupt__ on the response, and the client resumes with
     # Command(resume=<reply>) — the resume value becomes this call's return.
@@ -125,7 +146,17 @@ def enrich_query(
     occasion: str,
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> Command:
-    """Expand the user's raw query into a semantic search query, plus inferred color and garment-type filters. Pass the user's gender and occasion so the enrichment reflects the slot context."""
+    """
+    Expand a raw apparel query into a semantic search query and associated filters.
+    
+    Parameters:
+    	raw_query (str): The user's original search query.
+    	gender (str): The user's selected gender context.
+    	occasion (str): The user's selected occasion.
+    
+    Returns:
+    	Command: A graph state update containing the enriched query, search filters, gathered slots, and tool trace.
+    """
     with _trace("enrich_query") as entry:
         try:
             enriched_text: str = _qe_module.enrich_query(
@@ -183,7 +214,16 @@ def search_products(
     filters: SearchFilters,
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> Command:
-    """Search the product catalog for items matching the semantic query and filters. Returns at most 5 products. The LLM cannot override the result-count cap. Set filters to constrain by colors, occasion, category, or gender; leave fields None to relax the constraint. strict_mode auto-activates when any filter field is non-None."""
+    """
+    Search the product catalog using a semantic query and optional filters.
+    
+    Parameters:
+        semantic_query (str): The query describing the desired products.
+        filters (SearchFilters): Filters for narrowing results by color, occasion, category, or gender.
+    
+    Returns:
+        Command: A graph state update containing the matching products, applied filters, result summary, and tool trace.
+    """
     with _trace("search_products") as entry:
         log.info("search_products: query='%s', gender=%s, occasion=%s", semantic_query, filters.gender, filters.occasion)
         strict = any(
@@ -262,7 +302,16 @@ def search_products(
 
 
 def _to_product(raw: Any, gender: str | None = None) -> Product:
-    """Map a legacy SearchResultItem to an agent Product."""
+    """
+    Convert a legacy search result into an agent product.
+    
+    Parameters:
+    	raw (Any): Legacy search result data or a model that can be converted to a mapping.
+    	gender (str | None): Gender associated with the product.
+    
+    Returns:
+    	Product: Product populated from the search result data.
+    """
     if hasattr(raw, "model_dump"):
         raw = raw.model_dump()
     matched = raw.get("matched_attributes") or {}
@@ -286,7 +335,16 @@ def curate_outfits(
     state: Annotated[dict, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> Command:
-    """Curate outfit combinations from the products returned by the most recent search_products call. Call this immediately after search_products — no arguments needed."""
+    """
+    Curate outfit combinations from the products stored in the current graph state.
+    
+    Parameters:
+    	state (dict): Graph state containing the products from the latest search.
+    	tool_call_id (str): Identifier for the tool call associated with the state update.
+    
+    Returns:
+    	Command: State update containing the curated outfit combinations, a summary tool message, and trace information.
+    """
     # Products come from state (single source of truth from Pinecone).
     # The LLM must NOT pass product data — it would hallucinate image_path and product_id.
     products: list[Product] = list(state.get("last_products") or [])
@@ -375,11 +433,16 @@ def _to_outfit_combo_from_ids(
     rank: int,
     product_map: dict[str, Product],
 ) -> OutfitCombo | None:
-    """Map a legacy combo dict (top_product_id + bottom_product_id) to OutfitCombo.
-
-    Returns None if neither referenced product exists in product_map.
-    rationale comes from 'styling_rationale'; synthesizes a default if absent
-    (flagged as v3.1 concern — LLM should always provide styling_rationale).
+    """
+    Create an outfit combination from referenced product identifiers.
+    
+    Parameters:
+        raw_combo (dict): Combo data containing product identifiers and an optional styling rationale.
+        rank (int): Rank assigned to the resulting outfit combination.
+        product_map (dict[str, Product]): Products keyed by product identifier.
+    
+    Returns:
+        OutfitCombo | None: The constructed combination, or None when no referenced products are found.
     """
     items: list[Product] = []
     for id_key in ("top_product_id", "bottom_product_id"):

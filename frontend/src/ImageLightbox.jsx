@@ -3,12 +3,15 @@ import { createPortal } from "react-dom";
 import "./ImageLightbox.css";
 
 /**
- * ImageLightbox
+ * Displays an image preview in a modal overlay.
  *
- * Props:
- *   src      — image URL to display
- *   alt      — alt / caption text
- *   onClose  — called when the user dismisses the overlay
+ * The overlay can be dismissed by clicking its background, pressing Escape, or
+ * activating the close button. Background scrolling is disabled while it is open.
+ *
+ * @param {string} src - URL of the image to display.
+ * @param {string} [alt] - Alternative text and optional caption for the image.
+ * @param {Function} onClose - Callback invoked when the overlay is dismissed.
+ * @returns {React.ReactPortal} The image preview overlay rendered into the document body.
  */
 export default function ImageLightbox({ src, alt, onClose }) {
   // Close on Escape key
