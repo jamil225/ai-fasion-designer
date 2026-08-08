@@ -110,6 +110,7 @@ class Settings(BaseSettings):
     hq_image_folder_path: str = ""
     kaggle_username: str = ""
     kaggle_key: str = ""
+    ingestion_log_csv_path: str = "ingestion_log.csv"
 
     # Google OAuth
     google_client_id: str = ""

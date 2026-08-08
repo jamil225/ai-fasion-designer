@@ -7,6 +7,7 @@ from pathlib import Path
 from src.config import Settings
 from src.csv_loader import get_csv_row, load_csv_lookup
 from src.embeddings import build_embedding_text, generate_embedding
+from src.ingestion_log import append_ingestion_log_row
 from src.merge import merge_product_data
 from src.pinecone_client import hash_exists, init_pinecone, upsert_vector
 from src.schemas import FailedItem, IngestMode, IngestStatus
@@ -159,6 +160,14 @@ def run_ingestion(settings: Settings, mode: IngestMode) -> str:
                 "job_id=%s product_id=%s Upserted to Pinecone",
                 job_id, metadata["product_id"],
             )
+
+            try:
+                append_ingestion_log_row(settings.ingestion_log_csv_path, metadata)
+            except OSError as e:
+                logger.warning(
+                    "job_id=%s product_id=%s Failed to write ingestion log row: %s",
+                    job_id, metadata["product_id"], e,
+                )
 
             job_store[job_id]["processed"] += 1
 
