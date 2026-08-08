@@ -15,3 +15,4 @@ langchain-openai
 pyyaml>=6.0,<7.0
 langsmith
 litellm
+kagglehub

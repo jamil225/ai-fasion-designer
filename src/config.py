@@ -107,6 +107,9 @@ class Settings(BaseSettings):
     csv_file_path: str = ""
     default_top_k: int = 10
     best_match_score_threshold: float = _load_best_match_score_threshold()
+    hq_image_folder_path: str = ""
+    kaggle_username: str = ""
+    kaggle_key: str = ""
 
     # Google OAuth
     google_client_id: str = ""
