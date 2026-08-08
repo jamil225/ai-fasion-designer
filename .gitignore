@@ -36,3 +36,6 @@ GIT_STATUS_SUMMARY.md
 temp-images/
 /.idea
 /.junie
+
+# Subagent-driven-development scratch workspace (ledgers, briefs, review packages)
+.superpowers/
