@@ -285,6 +285,33 @@
   font-weight: 600;
 }
 
+/* ── Actions ── */
+.combo-card-actions {
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+}
+
+.combo-card-add-to-cart {
+  width: 100%;
+  padding: 10px;
+  background: var(--accent-gradient);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-full);
+  font-family: var(--font-family);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.combo-card-add-to-cart:hover {
+  opacity: 0.9;
+}
+
+.combo-card-add-to-cart.added {
+  background: var(--success, #4a9d6f);
+}
+
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
   .combo-card {

@@ -1,4 +1,5 @@
 import UserMenu from "./UserMenu";
+import CartButton from "./CartButton";
 import "./Header.css";
 
 export default function Header() {
@@ -17,6 +18,7 @@ export default function Header() {
           </p>
         </div>
         <div className="header-actions">
+          <CartButton />
           <UserMenu />
         </div>
       </div>
