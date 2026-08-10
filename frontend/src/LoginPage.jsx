@@ -34,7 +34,7 @@ export default function LoginPage() {
       <div className="login-card-panel">
         <div className="login-card">
           <div className="login-logo">
-            <span className="login-logo-icon">✦</span>
+            <img src="/logo.jpg" alt="AURA AI VIP Logo" className="login-vip-logo" />
           </div>
           <h1 className="login-title">
             AI Fashion <span className="login-title-accent">Designer</span>

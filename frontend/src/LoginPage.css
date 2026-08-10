@@ -98,12 +98,19 @@
   margin-bottom: var(--space-lg);
 }
 
-.login-logo-icon {
-  font-size: 2.8rem;
-  background: var(--accent-gradient-warm);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.login-vip-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  object-fit: cover;
+  box-shadow: 0 8px 24px rgba(184, 134, 11, 0.3);
+  border: 1.5px solid rgba(255, 215, 0, 0.4);
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.login-vip-logo:hover {
+  transform: scale(1.06) rotate(1deg);
+  box-shadow: 0 12px 32px rgba(184, 134, 11, 0.45);
 }
 
 .login-title {

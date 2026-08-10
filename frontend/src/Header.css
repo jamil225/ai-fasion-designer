@@ -27,13 +27,19 @@
   margin-bottom: var(--space-xs);
 }
 
-.logo-icon {
-  font-size: 1.5rem;
-  background: var(--accent-gradient-warm);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  filter: brightness(1.2);
+.app-vip-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 4px 16px rgba(184, 134, 11, 0.25);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.app-vip-logo:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(184, 134, 11, 0.4);
 }
 
 .header-title {

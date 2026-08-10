@@ -8,7 +8,7 @@ export default function Header() {
       <div className="header-content">
         <div className="header-brand">
           <div className="logo-mark">
-            <span className="logo-icon">✦</span>
+            <img src="/logo.jpg" alt="AURA AI VIP Logo" className="app-vip-logo" />
           </div>
           <h1 className="header-title">
             AI Fashion <span className="title-accent">Designer</span>
