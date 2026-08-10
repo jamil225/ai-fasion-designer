@@ -1,0 +1,307 @@
+/* ===== ComboCanvas — large outfit combo cards ===== */
+
+/* ── Empty state ── */
+.combo-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-3xl) var(--space-2xl);
+  min-height: 320px;
+  gap: var(--space-md);
+}
+
+.combo-empty-icon {
+  font-size: 2.5rem;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.65; transform: scale(0.94); }
+}
+
+.combo-empty-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.combo-empty-sub {
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  max-width: 380px;
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* ── Combo grid — container-query responsive ── */
+.combo-canvas-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-xl);
+  padding-bottom: var(--space-2xl);
+}
+
+/* Switch to 2-column when canvas is wide enough */
+@container canvas (inline-size > 720px) {
+  .combo-canvas-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ── Combo Card ── */
+.combo-card {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(180, 165, 145, 0.2);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow:
+    0 2px 8px rgba(120, 100, 75, 0.05),
+    0 8px 32px rgba(120, 100, 75, 0.08);
+  animation: fadeInUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.combo-card:hover {
+  box-shadow:
+    0 4px 16px rgba(120, 100, 75, 0.08),
+    0 16px 48px rgba(120, 100, 75, 0.12);
+  transform: translateY(-2px);
+}
+
+/* Staggered card entrance */
+.combo-card:nth-child(1) { animation-delay: 0.05s; }
+.combo-card:nth-child(2) { animation-delay: 0.12s; }
+.combo-card:nth-child(3) { animation-delay: 0.19s; }
+.combo-card:nth-child(4) { animation-delay: 0.26s; }
+
+/* ── Card Header ── */
+.combo-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg) var(--space-sm);
+  border-bottom: 1px solid rgba(180, 165, 145, 0.1);
+}
+
+.combo-card-rank {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-primary);
+}
+
+.combo-card-occasion {
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  background: rgba(163, 119, 77, 0.07);
+  border: 1px solid rgba(163, 119, 77, 0.14);
+  border-radius: var(--radius-full);
+  padding: 3px 10px;
+}
+
+/* ── Image pair grid ── */
+.combo-card-images {
+  display: grid;
+  gap: 2px;
+  padding: 2px;
+}
+
+/* 1 item */
+.combo-card-images.count-1 {
+  grid-template-columns: 1fr;
+}
+
+/* 2 items — side by side */
+.combo-card-images.count-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* 3 items — first one taller, two smaller below */
+.combo-card-images.count-3 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+}
+
+.combo-card-images.count-3 .combo-card-image-cell:first-child {
+  grid-column: 1 / -1;
+}
+
+.combo-card-image-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+}
+
+/* ── Image wrapper ── */
+.combo-img-wrapper {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: var(--bg-secondary);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* 3-item first cell is landscape */
+.combo-card-images.count-3 .combo-card-image-cell:first-child .combo-img-wrapper {
+  aspect-ratio: 16 / 9;
+}
+
+.combo-img-wrapper.loaded {
+  opacity: 1;
+}
+
+.combo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform var(--transition-base);
+}
+
+.combo-img-wrapper:hover .combo-img {
+  transform: scale(1.04);
+}
+
+/* Zoom hint icon */
+.combo-img-zoom-hint {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(163, 119, 77, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: var(--accent-primary);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all var(--transition-fast);
+  pointer-events: none;
+}
+
+.combo-img-wrapper:hover .combo-img-zoom-hint {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Skeleton while loading */
+.combo-img-skeleton {
+  aspect-ratio: 1;
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 25%,
+    rgba(200, 185, 165, 0.15) 50%,
+    var(--bg-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Placeholder when no image */
+.combo-img-placeholder {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  background: var(--bg-secondary);
+  font-size: 2rem;
+}
+
+.combo-img-placeholder-label {
+  font-size: 0.68rem;
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+}
+
+/* ── Image meta below each image ── */
+.combo-card-image-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid rgba(180, 165, 145, 0.08);
+}
+
+.combo-card-item-category {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+}
+
+.combo-card-item-colors {
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
+}
+
+/* ── Caption ── */
+.combo-card-caption {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  padding: var(--space-sm) var(--space-lg) 0;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: clip;
+}
+
+/* ── Rationale ── */
+.combo-card-rationale {
+  font-size: 0.82rem;
+  color: var(--text-accent);
+  line-height: 1.65;
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  margin: 0;
+  border-top: 1px solid rgba(180, 165, 145, 0.1);
+}
+
+.combo-card-rationale strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .combo-card {
+    animation: none;
+    transition: none;
+  }
+
+  .combo-img-wrapper {
+    opacity: 1;
+    transition: none;
+  }
+
+  .combo-img {
+    transition: none;
+  }
+
+  .combo-empty-icon {
+    animation: none;
+  }
+}

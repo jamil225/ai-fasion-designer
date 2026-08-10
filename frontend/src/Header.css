@@ -1,5 +1,5 @@
 .app-header {
-  padding: var(--space-lg) var(--space-xl) var(--space-xl);
+  padding: var(--space-sm) var(--space-xl) var(--space-md);
   animation: fadeInUp 0.5s ease-out;
 }
 
@@ -11,7 +11,7 @@
 
 .header-brand {
   text-align: center;
-  padding-top: var(--space-xl);
+  padding-top: var(--space-sm);
 }
 
 .header-actions {
@@ -21,11 +21,11 @@
 }
 
 .logo-mark {
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-xs);
 }
 
 .logo-icon {
-  font-size: 2.2rem;
+  font-size: 1.5rem;
   background: var(--accent-gradient-warm);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -34,12 +34,13 @@
 }
 
 .header-title {
-  font-size: 2.4rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 1.8rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   line-height: 1.1;
   color: var(--text-primary);
-  margin-bottom: var(--space-sm);
+  margin-bottom: 2px;
 }
 
 .title-accent {

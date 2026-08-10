@@ -1,0 +1,219 @@
+/* ===== CanvasPanel — two-tab canvas layout ===== */
+
+/* Container query context so ComboCanvas & ResultsGrid can self-adapt */
+.canvas-panel {
+  container-type: inline-size;
+  container-name: canvas;
+  padding: var(--space-lg) var(--space-md) var(--space-2xl);
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Tab Bar ── */
+.canvas-tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: var(--space-lg);
+  position: relative;
+  padding-bottom: 1px;
+}
+
+.canvas-tab-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-xl);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.canvas-tab-btn:hover {
+  color: var(--text-secondary);
+  background: rgba(163, 119, 77, 0.05);
+}
+
+.canvas-tab-btn.active {
+  color: var(--accent-primary);
+}
+
+/* Badge showing combo count */
+.canvas-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--accent-primary);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0 5px;
+  animation: fadeInUp 0.3s ease;
+}
+
+/* Sliding underline indicator */
+.canvas-tab-indicator-track {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 50%;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.canvas-tab-indicator {
+  position: absolute;
+  inset: 0;
+  background: var(--accent-gradient);
+  border-radius: 2px 2px 0 0;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  width: 100%;
+}
+
+/* ── Tab Views (content-visibility caching) ── */
+.canvas-view {
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Hide inactive view — keeps DOM/state in memory, removed from layout */
+.canvas-view.inactive {
+  content-visibility: hidden;
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Fallback for browsers without content-visibility */
+@supports not (content-visibility: hidden) {
+  .canvas-view.inactive {
+    display: none;
+  }
+}
+
+/* ── Scroll Area with Affordance Hints ── */
+.canvas-scroll-area {
+  position: relative;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  /* Establish scroll-state query container */
+  container-type: scroll-state;
+}
+
+/* Gradient hints — shown via scroll-state queries in Chrome 133+ */
+.canvas-scroll-hint {
+  position: sticky;
+  left: 0;
+  right: 0;
+  height: 28px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 2;
+}
+
+.canvas-scroll-hint--top {
+  top: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(245, 241, 235, 0.85) 0%,
+    transparent 100%
+  );
+  margin-bottom: -28px;
+}
+
+.canvas-scroll-hint--bottom {
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    rgba(245, 241, 235, 0.85) 0%,
+    transparent 100%
+  );
+  margin-top: -28px;
+}
+
+/* Show top hint when scrollable upward */
+@container scroll-state(scrollable: top) {
+  .canvas-scroll-hint--top {
+    opacity: 1;
+  }
+}
+
+/* Show bottom hint when scrollable downward */
+@container scroll-state(scrollable: bottom) {
+  .canvas-scroll-hint--bottom {
+    opacity: 1;
+  }
+}
+
+/* ── View Transitions — directional tab slide ── */
+@keyframes canvas-slide-to-left {
+  to { transform: translateX(-40px); opacity: 0; }
+}
+@keyframes canvas-slide-from-right {
+  from { transform: translateX(40px); opacity: 0; }
+}
+@keyframes canvas-slide-to-right {
+  to { transform: translateX(40px); opacity: 0; }
+}
+@keyframes canvas-slide-from-left {
+  from { transform: translateX(-40px); opacity: 0; }
+}
+
+html:active-view-transition-type(forward)::view-transition-old(root) {
+  animation: canvas-slide-to-left 0.28s ease-in-out both;
+}
+html:active-view-transition-type(forward)::view-transition-new(root) {
+  animation: canvas-slide-from-right 0.28s ease-in-out both;
+}
+html:active-view-transition-type(backward)::view-transition-old(root) {
+  animation: canvas-slide-to-right 0.28s ease-in-out both;
+}
+html:active-view-transition-type(backward)::view-transition-new(root) {
+  animation: canvas-slide-from-left 0.28s ease-in-out both;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .canvas-tab-indicator { transition: none; }
+
+  html::view-transition-group(*),
+  html::view-transition-old(*),
+  html::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* ── Mobile: collapse scroll area height ── */
+@media (max-width: 1080px) {
+  .canvas-panel {
+    padding: var(--space-md) var(--space-sm) var(--space-xl);
+  }
+
+  .canvas-scroll-area {
+    max-height: none;
+    overflow-y: visible;
+  }
+}

@@ -38,9 +38,18 @@ def run_styled_search(
     settings: Settings,
     request: StyledSearchRequest,
 ) -> StyledSearchResponse:
-    """Orchestrate the two-agent styled search pipeline.
-
-    Flow: enrich query → embed → Pinecone → stylist curation → structured combos.
+    """
+    Run a styled product search and assemble curated outfit recommendations.
+    
+    Query enrichment falls back to the original query when enrichment raises a
+    `RuntimeError`. Results below the configured score threshold are excluded, and
+    only products returned by the vector search are included in the curated
+    recommendations.
+    
+    Returns:
+        StyledSearchResponse: Search results containing outfit combinations,
+            standalone outfits, query enrichment details, result count, and
+            latency.
     """
     start_time = time.time()
 
@@ -51,7 +60,6 @@ def run_styled_search(
     enriched_query = request.query
     try:
         enriched_query = enrich_query(
-            api_key=settings.gemini_api_key,
             model_name=settings.search_enrichment_model_name,
             query=request.query,
         )
@@ -94,7 +102,6 @@ def run_styled_search(
 
     # Step 5: Stylist Agent — curate outfits from results
     stylist_output = curate_outfits(
-        api_key=settings.gemini_api_key,
         model_name=settings.stylist_model_name,
         original_query=request.query,
         products=results,

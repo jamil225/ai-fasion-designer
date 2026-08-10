@@ -90,7 +90,19 @@ def query_vectors(
     top_k: int = 10,
     filters: dict | None = None,
 ) -> list[dict]:
+    """
+    Query the Pinecone index for vectors similar to the provided vector.
+    
+    Parameters:
+        vector (list[float]): Query embedding used to find similar products.
+        top_k (int): Maximum number of matches to return.
+        filters (dict | None): Optional metadata filter applied to the query.
+    
+    Returns:
+        list[dict]: Matching products with similarity scores and product metadata.
+    """
     index = get_index()
+    logger.info("Pinecone query: top_k=%d, has_filters=%s", top_k, filters is not None)
 
     query_params: dict = {
         "vector": vector,
@@ -101,6 +113,7 @@ def query_vectors(
         query_params["filter"] = filters
 
     response = index.query(**query_params)
+    logger.info("Pinecone query returned %d matches", len(response.matches))
 
     results = []
     for match in response.matches:

@@ -1,11 +1,20 @@
 import { useState, useEffect } from "react";
 import { getImageUrl } from "./api";
+import ImageLightbox from "./ImageLightbox";
 import "./ProductCard.css";
 
+/**
+ * Render a product card with image details, metadata, and optional lightbox viewing.
+ * @param {Object} result - Product data used to populate the card.
+ * @param {number} index - Card position used to stagger its entrance animation.
+ * @param {boolean} isBrowseMode - Whether to display the compact browse-mode layout.
+ * @return {JSX.Element} The rendered product card.
+ */
 export default function ProductCard({ result, index, isBrowseMode }) {
   const [imageUrl, setImageUrl] = useState(null);
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const attrs = result.matched_attributes || {};
   const filename = (result.image_path || result.filename || "")
@@ -46,7 +55,12 @@ export default function ProductCard({ result, index, isBrowseMode }) {
       className="product-card"
       style={{ animationDelay: `${index * 0.06}s` }}
     >
-      <div className="card-image-container">
+      <div
+        className="card-image-container"
+        onClick={() => imageUrl && !imageError && setLightboxOpen(true)}
+        style={imageUrl && !imageError ? { cursor: "zoom-in" } : undefined}
+        title={imageUrl && !imageError ? "Click to enlarge" : undefined}
+      >
         {imageUrl && !imageError ? (
           <>
             {!imageLoaded && <div className="image-skeleton" />}
@@ -58,6 +72,9 @@ export default function ProductCard({ result, index, isBrowseMode }) {
               onLoad={() => setImageLoaded(true)}
               onError={() => setImageError(true)}
             />
+            {imageLoaded && (
+              <div className="image-zoom-hint" aria-hidden="true">⊕</div>
+            )}
           </>
         ) : (
           <div className="image-placeholder">
@@ -70,6 +87,14 @@ export default function ProductCard({ result, index, isBrowseMode }) {
           </div>
         )}
       </div>
+
+      {lightboxOpen && imageUrl && (
+        <ImageLightbox
+          src={imageUrl}
+          alt={caption || category}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
 
       <div className="card-body">
         {!isBrowseMode ? (

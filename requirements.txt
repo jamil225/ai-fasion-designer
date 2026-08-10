@@ -3,8 +3,14 @@ uvicorn
 pydantic
 pydantic-settings
 python-dotenv
-google-genai
+google-genai>=1.0
 openai
 pinecone
 google-auth
 PyJWT
+langchain
+langgraph
+langchain-google-genai>=4.0.0
+pyyaml>=6.0,<7.0
+langsmith
+litellm

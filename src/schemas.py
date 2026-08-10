@@ -132,3 +132,13 @@ class StyledSearchResponse(BaseModel):
     query_enrichment: QueryEnrichment
     total_results_from_vector: int
     latency_ms: int
+
+
+class LiteLLMTestRequest(BaseModel):
+    prompt: str
+
+
+class LiteLLMTestResponse(BaseModel):
+    text: str
+    model: str
+    latency_ms: int

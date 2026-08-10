@@ -1,13 +1,13 @@
 import json
 import logging
-import time
 
-from google import genai
+from src.llm_gateway import generate_text
 
 logger = logging.getLogger(__name__)
 
-MAX_RETRIES = 3
-BACKOFF_SECONDS = [1, 2, 4]
+# Content-level retry: re-ask the model if it returns unparseable JSON. Connectivity
+# retry/backoff is owned by the gateway, so this loop only guards against bad output.
+MAX_PARSE_RETRIES = 3
 
 STYLIST_SYSTEM_PROMPT = """You are an expert fashion stylist AI. You receive a set of fashion products retrieved from a vector search and must create cohesive outfit combinations.
 
@@ -95,20 +95,30 @@ def _prepare_products_for_prompt(products: list[dict]) -> str:
 
 
 def curate_outfits(
-    api_key: str,
     model_name: str,
     original_query: str,
     products: list[dict],
     combo_count: int,
+    system_prompt: str | None = None,
 ) -> dict:
-    """Use Gemini Pro to curate outfit combinations from vector search results.
-
-    Returns a dict with 'combos' and 'standalone_outfits' arrays.
-    Each combo references products by product_id only — the caller resolves
-    these back to full product metadata.
     """
-    client = genai.Client(api_key=api_key)
-
+    Curate outfit combinations from product search results using the language model.
+    
+    Parameters:
+        original_query (str): The user's outfit request.
+        products (list[dict]): Product search results provided to the curator.
+        combo_count (int): Maximum number of outfit combinations to request.
+        system_prompt (str | None): Optional system prompt override.
+    
+    Returns:
+        dict: The parsed curation payload, including `combos` and
+            `standalone_outfits` when provided by the model.
+    
+    Raises:
+        RuntimeError: If the model response cannot be parsed as JSON after all
+            parse attempts.
+    """
+    effective_system_prompt = system_prompt if system_prompt is not None else STYLIST_SYSTEM_PROMPT
     products_json = _prepare_products_for_prompt(products)
     user_message = STYLIST_USER_TEMPLATE.format(
         original_query=original_query,
@@ -117,17 +127,17 @@ def curate_outfits(
     )
 
     last_error: Exception | None = None
-    for attempt in range(MAX_RETRIES):
+    for attempt in range(MAX_PARSE_RETRIES):
+        # Gateway handles connectivity retry/backoff; LLMGatewayError (a RuntimeError)
+        # propagates if the backend is unreachable after its own retries.
+        raw_text = generate_text(
+            task="stylist",
+            model=model_name,
+            system_prompt=effective_system_prompt,
+            user_message=user_message,
+        )
         try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=[
-                    STYLIST_SYSTEM_PROMPT + "\n\n" + user_message,
-                ],
-            )
-            raw_text = response.text
             parsed = _parse_stylist_response(raw_text)
-
             combos = parsed.get("combos", [])
             standalone = parsed.get("standalone_outfits", [])
             logger.info(
@@ -135,23 +145,13 @@ def curate_outfits(
                 len(combos), len(standalone),
             )
             return parsed
-
         except json.JSONDecodeError as e:
             last_error = e
             logger.warning(
                 "Attempt %d/%d: Failed to parse stylist response: %s",
-                attempt + 1, MAX_RETRIES, e,
+                attempt + 1, MAX_PARSE_RETRIES, e,
             )
-        except Exception as e:
-            last_error = e
-            logger.warning(
-                "Attempt %d/%d: Stylist API error: %s",
-                attempt + 1, MAX_RETRIES, e,
-            )
-
-        if attempt < MAX_RETRIES - 1:
-            time.sleep(BACKOFF_SECONDS[attempt])
 
     raise RuntimeError(
-        f"Stylist curation failed after {MAX_RETRIES} attempts: {last_error}"
+        f"Stylist curation failed after {MAX_PARSE_RETRIES} attempts: {last_error}"
     )

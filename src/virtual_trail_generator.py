@@ -129,16 +129,20 @@ def generate_angles(
     model_image_path: str | None = None,
 ) -> dict:
     """
-    Generate 4 angle images for a sari product.
-
+    Generate four full-body sari images from front, right-side, back, and left-profile angles.
+    
     Args:
-        sari_image_path: Path to the uploaded sari product image.
-        output_dir: Directory to save generated images.
-        product_name: Clean name for file naming.
-        model_image_path: Path to the default model reference image.
-
+        sari_image_path: Path to the sari product image.
+        output_dir: Directory where generated images are saved.
+        product_name: Name used to construct output filenames.
+        model_image_path: Optional path to the model reference image. Uses the configured
+            default image when omitted.
+    
     Returns:
-        dict with angle names as keys and output file paths (or error) as values.
+        A mapping of angle names to saved image paths or error details.
+    
+    Raises:
+        FileNotFoundError: If the sari image or model reference image does not exist.
     """
     if model_image_path is None:
         model_image_path = config.DEFAULT_MODEL_IMAGE
@@ -158,8 +162,8 @@ def generate_angles(
     model_ref_part = _load_image_as_part(model_image_path)
     sari_ref_part = _load_image_as_part(sari_image_path)
 
-    # Init API client
-    client = genai.Client(api_key=config.GOOGLE_API_KEY)
+    # Init Vertex AI client (uses Application Default Credentials)
+    client = genai.Client(vertexai=True, project=config.GOOGLE_CLOUD_PROJECT, location=config.GOOGLE_CLOUD_LOCATION)
 
     results = {}
 

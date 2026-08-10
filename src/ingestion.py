@@ -43,6 +43,16 @@ def scan_image_folder(folder_path: str) -> list[Path]:
 
 
 def run_ingestion(settings: Settings, mode: IngestMode) -> str:
+    """
+    Run the image ingestion pipeline and track its progress.
+    
+    Parameters:
+        settings (Settings): Configuration for image processing, model access, and vector storage.
+        mode (IngestMode): Determines whether previously ingested images may be skipped.
+    
+    Returns:
+        str: The identifier of the recorded ingestion job.
+    """
     job_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc)
 
@@ -109,7 +119,6 @@ def run_ingestion(settings: Settings, mode: IngestMode) -> str:
 
             # Stage 1: Vision — raw visual analysis from Gemini
             vision_output = extract_metadata(
-                api_key=settings.gemini_api_key,
                 image_path=image_path,
                 model_name=settings.vision_model_name,
             )
@@ -117,7 +126,6 @@ def run_ingestion(settings: Settings, mode: IngestMode) -> str:
             # Stage 2: Merge — combine vision with vendor CSV (CSV corrects factual fields)
             csv_row = get_csv_row(csv_lookup, image_path)
             merged_output = merge_product_data(
-                api_key=settings.gemini_api_key,
                 model_name=settings.merge_model_name,
                 vision_output=vision_output,
                 csv_row=csv_row,
