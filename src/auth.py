@@ -120,3 +120,33 @@ async def verify_auth(
 
     logger.warning("Auth FAILED — no valid session or API key")
     raise HTTPException(status_code=401, detail="Authentication required")
+
+
+async def verify_admin(
+    request: Request,
+    api_key: str | None = Security(API_KEY_HEADER),
+    settings: Settings = Depends(get_settings),
+) -> str:
+    """Require admin privileges for destructive operations.
+
+    Grants access if:
+      - The request carries a valid ADMIN_API_KEY, or
+      - The session user's email is in ADMIN_EMAILS.
+
+    Returns the admin identifier (email or 'admin-api-key-user').
+    """
+    # 1. Dedicated admin API key (highest priority)
+    if api_key and settings.admin_api_key and api_key == settings.admin_api_key:
+        logger.info("Admin auth OK via admin API key")
+        return "admin-api-key-user"
+
+    # 2. Session cookie — check if user email is in the admin list
+    session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    if session_token and settings.session_secret:
+        user_info = verify_session_token(session_token, settings.session_secret)
+        if user_info and user_info["email"] in settings.admin_emails:
+            logger.info("Admin auth OK via session, user=%s", user_info["email"])
+            return user_info["email"]
+
+    logger.warning("Admin auth FAILED — insufficient privileges")
+    raise HTTPException(status_code=403, detail="Admin privileges required")
