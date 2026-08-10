@@ -94,7 +94,13 @@ jobs:
       - name: Start Application Backend on GitHub VM
         run: |
           echo "▶ Starting FastAPI Backend (uvicorn) on GitHub Runner VM..."
-          touch .env
+          cat << 'EOF' > .env
+          GOOGLE_CLOUD_PROJECT=test-project-id
+          GOOGLE_CLOUD_LOCATION=us-central1
+          OPENAI_API_KEY=fake-openai-key-for-ci-testing
+          PINECONE_API_KEY=fake-pinecone-key-for-ci-testing
+          APP_API_KEY=test-api-key-123
+          EOF
           uvicorn src.main:app --host 127.0.0.1 --port 8083 &
           UVICORN_PID=$!
           echo "UVICORN_PID=$UVICORN_PID" >> $GITHUB_ENV
