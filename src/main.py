@@ -106,7 +106,10 @@ async def list_images(settings: Settings = Depends(get_settings)) -> dict:
 async def serve_image(
     filename: str, settings: Settings = Depends(get_settings)
 ) -> FileResponse:
-    image_path = Path(settings.image_folder_path) / filename
+    folder = Path(settings.image_folder_path).resolve()
+    image_path = (folder / filename).resolve()
+    if not image_path.is_relative_to(folder):
+        raise HTTPException(status_code=400, detail="Invalid filename")
     if not image_path.exists():
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(image_path)
