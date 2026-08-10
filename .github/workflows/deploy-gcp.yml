@@ -1,0 +1,99 @@
+name: Manual Build & GCP VM Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Branch or Git Ref to build & deploy'
+        required: true
+        default: 'agentic-implementation'
+      deploy_to_gcp:
+        description: 'Deploy to GCP VM after build pass?'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  semgrep-security-scan:
+    name: 1. Semgrep SAST Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.target_branch }}
+
+      - name: Run Semgrep Security Scan
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: p/ci
+
+  build-and-verify:
+    name: 2. Build & Code Verification
+    needs: semgrep-security-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.target_branch }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build Frontend React Assets
+        run: |
+          cd frontend
+          npm ci
+          VITE_GOOGLE_CLIENT_ID="50507686337-cgbkqmro01n4boolifghfkl21p6lbgtl.apps.googleusercontent.com" npm run build
+
+  gcp-vm-deploy:
+    name: 3. GCP VM Deployment
+    needs: build-and-verify
+    if: ${{ github.event.inputs.deploy_to_gcp == 'true' || github.event.inputs.deploy_to_gcp == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GCP VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCP_VM_IP }}
+          username: ${{ secrets.GCP_VM_USER }}
+          key: ${{ secrets.GCP_SSH_KEY }}
+          script: |
+            set -e
+            echo "▶ Updating application repository..."
+            cd /srv/ai-fashion-designer/app
+            git fetch origin
+            git checkout ${{ github.event.inputs.target_branch }}
+            git pull
+
+            echo "▶ Updating Python virtual environment..."
+            source venv/bin/activate
+            pip install -r requirements.txt
+
+            echo "▶ Rebuilding frontend..."
+            cd frontend
+            npm install
+            npm run build
+            sudo cp -r dist/* /var/www/ai-fashion-designer/
+
+            echo "▶ Restarting backend and Nginx..."
+            sudo systemctl restart ai-fashion-backend
+            sudo systemctl reload nginx
+
+            echo "✅ Deployment completed successfully!"

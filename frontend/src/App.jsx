@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AuthProvider, useAuth } from "./AuthContext";
+import { CartProvider } from "./CartContext";
 import LoginPage from "./LoginPage";
 import Header from "./Header";
 import CanvasPanel from "./CanvasPanel";
@@ -136,7 +137,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <CartProvider>
+        <AppContent />
+      </CartProvider>
     </AuthProvider>
   );
 }

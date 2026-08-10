@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getImageUrl } from "./api";
 import ImageLightbox from "./ImageLightbox";
+import { useCart } from "./CartContext";
 import "./ComboCanvas.css";
 
 /**
@@ -85,6 +86,14 @@ function ComboImage({ item }) {
  */
 function ComboCard({ combo, rank }) {
   const items = (combo.items || []).slice(0, 3);
+  const { addItems } = useCart();
+  const [added, setAdded] = useState(false);
+
+  const handleAddToCart = () => {
+    addItems(items);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1500);
+  };
 
   return (
     <article className="combo-card">
@@ -126,6 +135,15 @@ function ComboCard({ combo, rank }) {
           {combo.rationale}
         </p>
       )}
+
+      <div className="combo-card-actions">
+        <button
+          className={`combo-card-add-to-cart ${added ? "added" : ""}`}
+          onClick={handleAddToCart}
+        >
+          {added ? "✓ Added to Cart" : "🛒 Add to Cart"}
+        </button>
+      </div>
     </article>
   );
 }

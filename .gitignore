@@ -20,6 +20,12 @@ frontend/dist/
 
 # Personal study/learning notes
 learnings/
+GenAI Interview Questions.md
+interview-prep-role-targeted.html
+
+# Generated reports / runtime logs
+bandit-report.html
+ingestion_log.csv
 
 # macOS metadata
 .DS_Store
@@ -36,3 +42,6 @@ GIT_STATUS_SUMMARY.md
 temp-images/
 /.idea
 /.junie
+
+# Subagent-driven-development scratch workspace (ledgers, briefs, review packages)
+.superpowers/
