@@ -17,7 +17,7 @@ echo ""
 
 APP_DIR="/srv/ai-fashion-designer"
 REPO_URL="https://github.com/jamil225/ai-fasion-designer.git"
-BRANCH="feat/multi-provider-failover"
+BRANCH="${1:-main}"
 
 # ─── 1. System packages ───
 echo "▶ [1/6] Updating system packages..."
