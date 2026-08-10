@@ -1,0 +1,61 @@
+flowchart TB
+    subgraph CLIENT["Client Layer"]
+        UI["React 19 Luxury UI<br/><small>Vite / Port 5173</small>"]
+        SWAGGER["Swagger UI<br/><small>/docs / Port 8083</small>"]
+    end
+
+    subgraph INFRA["GCP Compute Engine Infrastructure"]
+        direction TB
+        NGINX["Nginx Reverse Proxy<br/><small>Let's Encrypt SSL (8.234.93.21.nip.io)</small>"]
+        SYSTEMD["Systemd Unit<br/><small>ai-fashion-backend.service</small>"]
+        NGINX -->|Proxy /v1/* -> 127.0.0.1:8083| SYSTEMD
+    end
+
+    subgraph APP["FastAPI Application (Port 8083)"]
+        direction TB
+        AUTH["Auth Middleware<br/><small>X-API-Key / Google OAuth JWT</small>"]
+        GUARD_MGR["Guardrail Registry<br/><small>OpenAI Moderation / config/guardrails.yaml</small>"]
+        ROUTES["API Routes<br/><small>/v1/chat, /v1/search/styled, /v1/ingest/start</small>"]
+        AUTH --> GUARD_MGR --> ROUTES
+    end
+
+    subgraph AGENT_ENGINE["LangGraph ReAct Agent Subsystem"]
+        direction TB
+        GRAPH["Agent Graph (graph.py)<br/><small>create_react_agent / FashionAgentState</small>"]
+        TOOLS["State-Writing Tools (tools.py)<br/><small>check_required_fields | ask_user (HITL)<br/>enrich_query | search_products | curate_outfits</small>"]
+        PROMPTS["YAML Prompt Loader<br/><small>prompts/agent_prompts.yaml</small>"]
+        GRAPH <--> TOOLS
+        GRAPH <--> PROMPTS
+    end
+
+    subgraph LLM_GATEWAY["LLM Gateway (src/llm_gateway/)"]
+        direction TB
+        FACADE["Gateway Façade (gateway.py)"]
+        ROUTER["LiteLLM Router<br/><small>Text Failover & Cost Tracking</small>"]
+        FALLBACK["LangChain with_fallbacks<br/><small>Agent Chat Failover</small>"]
+        FACADE --> ROUTER
+        FACADE --> FALLBACK
+    end
+
+    subgraph EXTERNAL["External AI & Database Providers"]
+        VERTEX["Google Vertex AI<br/><small>Gemini 2.5 Pro (ADC)</small>"]
+        OPENAI["OpenAI API<br/><small>text-embedding-3-small<br/>gpt-5.6-terra Failover</small>"]
+        PINE[("Pinecone Vector DB<br/><small>fashion-rag index</small>")]
+        LANGSMITH["LangSmith Observability<br/><small>Child Spans & Tracing</small>"]
+    end
+
+    CLIENT --> NGINX
+    SYSTEMD --> APP
+    ROUTES --> AGENT_ENGINE
+    AGENT_ENGINE --> LLM_GATEWAY
+    LLM_GATEWAY --> VERTEX
+    LLM_GATEWAY --> OPENAI
+    TOOLS --> PINE
+    APP --> LANGSMITH
+
+    style CLIENT fill:#f5f5f7,stroke:#8e8e93
+    style INFRA fill:#e8eaf6,stroke:#283593,stroke-width:2px
+    style APP fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style AGENT_ENGINE fill:#fff7f0,stroke:#e36500,stroke-width:2px
+    style LLM_GATEWAY fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style EXTERNAL fill:#e8f5e9,stroke:#2e7d32

@@ -1,234 +1,171 @@
-# AI Fashion Designer 👗✨
+# AI Fashion Designer
 
-Welcome to **AI Fashion Designer**! Imagine having a personal AI stylist at your fingertips. Instead of just searching for individual items, you can tell the AI Fashion Designer exactly what you're looking for, and it will thoughtfully curate a cohesive, top-to-bottom outfit for you. 
+AI Fashion Designer extracts metadata from garment photos using computer vision, stores 1536-dimensional embeddings in Pinecone, and curates outfit combinations through a LangGraph ReAct agent. A multi-provider LLM gateway handles model calls with Vertex AI as primary and OpenAI as fallback. The web interface includes an outfit layout canvas, image lightbox, and shopping cart.
 
-Whether you need a complete look for a summer wedding or a sharp casual outfit for the weekend, it acts just like a human fashion stylist—using its deep knowledge to match top and bottom wear perfectly into one unified design.
+## System Architecture
 
-## What it does
-
-1. **Look & Learn**: Feeds garment images to Google Gemini Pro Vision to automatically extract structured fashion metadata (category, color, occasion, style tags).
-2. **Remember**: Embeds this metadata using OpenAI's `text-embedding-3-small` and stores it into Pinecone.
-3. **Design & Find**: You describe the vibe or occasion. The system does the heavy lifting, acting as your personal stylist to retrieve matching pieces that create the perfect overall look.
-
-All of this works without you ever touching a CSV file. You're welcome.
-
-## Tech Stack
-
-**Backend:**
-- **FastAPI** (Python 3.11+) for the speedy API and Swagger UI.
-- **Google Gemini Pro Vision** for analyzing garment images.
-- **OpenAI text-embedding-3-small** for generating 1536-dimensional vectors.
-- **Pinecone** for vector storage and semantic search.
-
-**Frontend:**
-- **React 19** with Vite for a responsive, modern UI.
-- **Vanilla CSS** for styling.
-
-## Quick Start (5 minutes)
-
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- API keys for:
-  - Google Gemini Pro Vision
-  - OpenAI (text-embedding-3-small)
-  - Pinecone
-  - (Create a custom app API key for authentication)
-
-### Backend Setup
-
-1. **Clone and navigate to the project:**
-   ```bash
-   cd /path/to/ai-fashion-designer
-   ```
-
-2. **Create and activate virtual environment:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure environment variables:**
-   ```bash
-   cp .env.example .env
-   # Edit .env and fill in your API keys and settings
-   ```
-
-   **Required environment variables:**
-   ```env
-   GEMINI_API_KEY=your-gemini-api-key
-   OPENAI_API_KEY=your-openai-api-key
-   PINECONE_API_KEY=your-pinecone-api-key
-   PINECONE_INDEX_NAME=fashion-rag
-   PINECONE_ENVIRONMENT=us-east-1
-   APP_API_KEY=your-custom-app-api-key
-   IMAGE_FOLDER_PATH=/path/to/garment/images
-   DEFAULT_TOP_K=10
-   ```
-
-5. **Run the FastAPI server:**
-   ```bash
-   uvicorn src.main:app --reload
-   ```
-   
-   Backend will be available at: `http://localhost:8000`
-   - API Swagger UI: `http://localhost:8000/docs`
-   - ReDoc: `http://localhost:8000/redoc`
-
-### Frontend Setup
-
-1. **Navigate to frontend directory:**
-   ```bash
-   cd frontend
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Configure frontend API endpoint:**
-   ```bash
-   # Check frontend/.env, default is http://localhost:8000
-   cat .env
-   ```
-
-4. **Start the development server:**
-   ```bash
-   npm run dev
-   ```
-   
-   Frontend will be available at: `http://localhost:5173`
-
-### Full Application Access
-
-Once both backend and frontend are running:
-- **Interactive UI**: `http://localhost:5173` — search, browse, and refine results
-- **API Documentation**: `http://localhost:8000/docs` — test endpoints directly with Swagger UI
-- **Health Check**: `http://localhost:8000/v1/health` — verify system status
-
-## API Endpoints
-
-### Ingestion
-- **`POST /v1/ingest/start`** — Kick off image ingestion from configured folder
-- **`GET /v1/ingest/status/{job_id}`** — Poll ingestion job status
-- **`DELETE /v1/pinecone/clear`** — Clear all vectors from index (for testing)
-
-### Search
-- **`POST /v1/search`** — Semantic search with soft/strict filtering modes
-- **`POST /v1/search/styled`** — AI-powered outfit recommendation (two-agent pipeline)
-- **`GET /v1/images`** — List available images
-- **`GET /v1/images/{filename}`** — Retrieve a specific image
-
-### Health & Status
-- **`GET /v1/health`** — Check system status and Pinecone connectivity
-- **`GET /`** — Redirect to frontend
-
-## Development Workflow
-
-### Testing the API
-1. Start the backend: `uvicorn src.main:app --reload`
-2. Open Swagger UI: `http://localhost:8000/docs`
-3. Test endpoints directly (auth required for all except `/v1/health`)
-
-### Building for Production
-**Backend:**
-```bash
-# No Docker/build step needed for Phase I
-# Deploy src/ directory with Python 3.11+ runtime
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          REACT 19 FRONTEND                              │
+│         Outfit Canvas · Image Lightbox · In-Memory Cart · OAuth         │
+└───────────────────────────────────┬─────────────────────────────────────┘
+                                    │ HTTP / REST (Port 8083)
+┌───────────────────────────────────▼─────────────────────────────────────┐
+│                       FASTAPI SERVICE LAYER                             │
+│       Auth Middleware · OpenAI Moderation Guard · LangSmith Spans       │
+└───────────────────────────────────┬─────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼─────────────────────────────────────┐
+│                       LANGGRAPH REACT AGENT                             │
+│   check_required_fields ──► ask_user (HITL) ──► enrich_query ──► search │
+└───────────────────────────────────┬─────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼─────────────────────────────────────┐
+│                        MULTI-PROVIDER GATEWAY                           │
+│     Primary: Google Vertex AI (ADC) ──► Fallback: OpenAI gpt-5.6       │
+└───────────────────────────────────┬─────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼─────────────────────────────────────┐
+│                          DATA & DB STORAGE                              │
+│      Pinecone Vector DB (1536d) · Ingestion Log CSV · LangSmith      │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Frontend:**
+### Core Components
+
+- **LangGraph Agent (`src/agent/`)**: Executes a 5-tool sequence (`check_required_fields`, `ask_user`, `enrich_query`, `search_products`, `curate_outfits`). Pauses execution via `ask_user` when search criteria are incomplete. Reads grounded product data from state via `InjectedState`.
+- **LLM Gateway (`src/llm_gateway/`)**: Routes text generation through a LiteLLM Router and agent calls through a LangChain fallback chain. Uses Google Vertex AI (`gemini-2.5-pro`) by default and switches to OpenAI (`gpt-5.6-terra`) if Vertex AI fails.
+- **Guardrails (`src/agent/guardrails/`)**: Validates incoming user messages against the OpenAI Moderation API before invoking the agent. Managed via `config/guardrails.yaml`.
+- **Ingestion Pipeline (`src/ingestion.py`)**: Computes SHA-256 file hashes to skip existing images. Extracts metadata with Gemini Vision, normalizes attribute values, builds OpenAI embeddings, and writes vectors to Pinecone.
+- **Frontend UI (`frontend/`)**: Built with React 19 and Vite. Displays search results, outfit combinations, item details, and cart state.
+- **GCP Deployment (`scripts/`)**: Deploys to a Google Compute Engine instance behind Nginx with Let's Encrypt SSL.
+
+## Technical Specifications
+
+| Layer | Component | Details |
+|---|---|---|
+| **Runtime** | Python, Node.js | Python 3.11+, Node.js 18+ |
+| **Backend** | FastAPI, Uvicorn | Async route handlers running on port 8083 |
+| **Agent Engine** | LangGraph | State graph with custom `FashionAgentState` |
+| **LLM Gateway** | LiteLLM Router, LangChain | Primary: Vertex AI (`gemini-2.5-pro`), Fallback: OpenAI (`gpt-5.6-terra`) |
+| **Vector DB** | Pinecone | Index `fashion-rag`, 1536 dimensions, Cosine similarity |
+| **Embeddings** | OpenAI | Model `text-embedding-3-small` |
+| **Frontend** | React 19, Vite | Standard CSS, proxy targets port 8083 |
+| **Host** | GCP Compute Engine | `e2-small` instance in `asia-south1-a` (Mumbai), Ubuntu 24.04 |
+
+## Local Setup
+
+### 1. Environment Configuration
+
+Copy `.env.example` to `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Configure required variables in `.env`:
+
+```env
+PORT=8083
+APP_API_KEY=your-app-api-key
+
+USE_VERTEXAI=true
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+GOOGLE_CLOUD_LOCATION=us-central1
+OPENAI_API_KEY=your-openai-key
+
+PINECONE_API_KEY=your-pinecone-key
+PINECONE_INDEX_NAME=fashion-rag
+IMAGE_FOLDER_PATH=/absolute/path/to/garment/images
+```
+
+### 2. Run Backend Service
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+PORT=8083 venv/bin/uvicorn src.main:app --port 8083 --reload
+```
+
+Interactive API documentation opens at `http://localhost:8083/docs`.
+
+### 3. Run Frontend Interface
+
+In a separate terminal:
+
 ```bash
 cd frontend
-npm run build
-# Output in frontend/dist/ — ready to serve as static files
+npm install
+npm run dev
 ```
 
-## Project Structure
+Open `http://localhost:5173` in your browser. Vite proxies `/v1` requests to port 8083.
+
+## Remote GCP Deployment
+
+Deploy local edits to the remote GCP VM with one script:
+
+```bash
+./scripts/deploy-and-open.sh
+```
+
+This script:
+1. Connects to instance `ai-fashion-designer` over SSH.
+2. Executes `scripts/vm-update.sh` to pull code, build static frontend assets, and restart the backend service.
+3. Checks `/v1/health` until the service responds.
+4. Opens `https://8.234.93.21.nip.io/` in your browser.
+
+## API Reference
+
+| Path | Method | Auth | Description |
+|---|---|---|---|
+| `/v1/chat` | `POST` | Header | Conversational endpoint for outfit requests. Returns tool traces and combos. |
+| `/v1/search/styled` | `POST` | Header | Direct outfit curation endpoint. |
+| `/v1/search` | `POST` | Header | Vector search with filter support. |
+| `/v1/ingest/start` | `POST` | Header | Scans `IMAGE_FOLDER_PATH` and updates Pinecone index. |
+| `/v1/ingest/status/{job_id}` | `GET` | Header | Checks ingestion job status. |
+| `/v1/pinecone/clear` | `DELETE` | Header | Clears all vectors from the target Pinecone index. |
+| `/v1/images/{filename}` | `GET` | None | Serves local garment images. Sanitizes input paths. |
+| `/v1/auth/google-login` | `POST` | None | Validates Google OAuth tokens. |
+| `/v1/health` | `GET` | None | Returns status for service and Pinecone connectivity. |
+
+## Repository Structure
 
 ```
 ai-fashion-designer/
-├── src/                        # Backend (Python)
-│   ├── main.py                # FastAPI app & routes
-│   ├── config.py              # Configuration & env loading
-│   ├── auth.py                # API key authentication
-│   ├── ingestion.py           # Image scanning & deduplication
-│   ├── vision.py              # Gemini Pro Vision integration
-│   ├── embeddings.py          # OpenAI text embedding
-│   ├── pinecone_client.py     # Pinecone vector operations
-│   ├── search.py              # Semantic search logic
-│   ├── styled_search.py       # AI outfit recommendation
-│   ├── taxonomy.py            # Controlled enums & normalization
-│   ├── schemas.py             # Pydantic request/response models
-│   ├── auth_routes.py         # Authentication routes
-│   └── static/                # Served static frontend
-├── frontend/                   # Frontend (React + Vite)
-│   ├── src/                   # React components
-│   ├── public/                # Static assets
-│   ├── index.html             # Entry point
-│   ├── vite.config.js         # Vite configuration
-│   └── package.json           # Node dependencies
-├── docs/                       # Architecture diagrams & docs
-├── .env.example               # Environment template
-├── requirements.txt           # Python dependencies
-├── PRD_v2_Phase1_Vision_First_RAG.md  # Requirements document
-└── CLAUDE.md                  # Development guidelines
+├── src/                        # Python backend service
+│   ├── main.py                 # FastAPI application setup
+│   ├── config.py               # Environment configuration via pydantic-settings
+│   ├── ingestion.py            # Folder scanning and ingestion workflow
+│   ├── ingestion_log.py        # CSV append logger for ingested vectors
+│   ├── vision.py               # Gemini Vision metadata extraction
+│   ├── merge.py                # Combines CSV vendor attributes with vision output
+│   ├── taxonomy.py             # Normalizes fashion categories and colors
+│   ├── embeddings.py           # Generates OpenAI embeddings
+│   ├── pinecone_client.py     # Pinecone DB queries and upserts
+│   ├── agent/                  # LangGraph agent implementation
+│   │   ├── graph.py            # State graph structure
+│   │   ├── tools.py            # Agent tool definitions
+│   │   ├── routes.py           # Chat API endpoint and interrupt handling
+│   │   ├── schemas.py          # State TypedDict and Pydantic models
+│   │   ├── prompt_loader.py    # YAML prompt loader with caching
+│   │   └── guardrails/         # Input moderation registry
+│   └── llm_gateway/            # Dual-provider LLM abstraction
+│       ├── gateway.py          # Gateway interface
+│       ├── providers.py        # Router and fallback chain builders
+│       └── callbacks.py        # Observability hooks
+├── frontend/                   # React web application
+│   ├── src/                    # UI components, canvas, and cart context
+│   └── vite.config.js          # Vite configuration and proxy rules
+├── scripts/                    # Automation scripts
+│   ├── deploy-and-open.sh      # Local command to deploy to GCP VM
+│   ├── vm-update.sh            # Remote VM update script
+│   └── download_hq_images.py   # Kaggle dataset downloader
+├── docs/                       # System documentation and diagrams
+├── prompts/                    # Externalized YAML prompts
+├── .github/workflows/          # GitHub Actions CI/CD workflows
+├── AGENTS.md                   # Agent guidelines
+└── CLAUDE.md                   # Development workflow and operating instructions
 ```
-
-## Troubleshooting
-
-### Backend won't start
-- Check Python version: `python --version` (requires 3.11+)
-- Verify all dependencies: `pip list | grep -E 'fastapi|pydantic|google-genai|openai|pinecone'`
-- Check `.env` file exists and all required keys are set
-
-### Frontend won't connect to backend
-- Ensure backend is running on `localhost:8000`
-- Check `frontend/.env` for correct API endpoint
-- Clear browser cache (Ctrl+Shift+Delete or Cmd+Shift+Delete)
-
-### Pinecone connection fails
-- Verify `PINECONE_API_KEY` is correct in `.env`
-- Check `PINECONE_INDEX_NAME` matches your Pinecone index
-- Ensure your Pinecone project has the index created
-
-### API returns 401 Unauthorized
-- Check `X-API-Key` header is set to your `APP_API_KEY` value
-- `/v1/health` endpoint does NOT require authentication
-
-## What's Committed to GitHub
-
-**Committed Code (8 commits):**
-- ✅ Full backend implementation (~2,200 lines of Python)
-- ✅ Frontend UI with React + Vite
-- ✅ Configuration and authentication
-- ✅ Vision, embedding, and search pipelines
-- ✅ Architecture diagrams and PRD documentation
-- ✅ Test images for quick validation
-
-**Not Committed (local development only):**
-- `.env` (contains API keys) — use `.env.example` template
-- `venv/` directory (Python virtual environment)
-- `frontend/node_modules/` (Node dependencies)
-- `frontend/dist/` (Build output)
-- `.DS_Store` (macOS system files)
-
-## Roadmap
-
-This is **Phase I** — optimized for clean, modular code and fast delivery. We're keeping it simple and scalable without over-engineering.
-
-**Phase II plans** (not yet implemented):
-- Extended metadata extraction
-- PostgreSQL database integration
-- Outfit bundle / full-look composition
-- Batch processing and async pipelines
-- Advanced caching strategies
-
----
-*Built with ❤️, Python, and a whole lot of vectors.*
