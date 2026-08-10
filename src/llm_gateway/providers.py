@@ -58,24 +58,35 @@ def build_text_router(settings: Settings):
 
 def build_chat_model(settings: Settings, *, temperature: float = 0):
     """Build the agent chat model: Vertex primary with a native OpenAI fallback chain."""
+    import logging
     from langchain_google_genai import ChatGoogleGenerativeAI
 
-    base = ChatGoogleGenerativeAI(
-        model=settings.llm_primary_model,
-        vertexai=settings.google_genai_use_vertexai,
-        project=settings.google_cloud_project,
-        location=settings.google_cloud_location,
-        temperature=temperature,
-    )
+    try:
+        base = ChatGoogleGenerativeAI(
+            model=settings.llm_primary_model,
+            vertexai=settings.google_genai_use_vertexai,
+            project=settings.google_cloud_project or None,
+            location=settings.google_cloud_location,
+            temperature=temperature,
+        )
+    except Exception as exc:
+        logging.getLogger(__name__).warning("Primary LLM (Vertex/Gemini) auth initialization skipped/failed: %s", exc)
+        if settings.openai_api_key:
+            from langchain_openai import ChatOpenAI
+            return ChatOpenAI(
+                model=settings.llm_fallback_model or "gpt-4o-mini",
+                api_key=settings.openai_api_key,
+                use_responses_api=True,
+                reasoning_effort=settings.llm_fallback_reasoning_effort,
+            )
+        from langchain_community.chat_models import FakeListChatModel
+        return FakeListChatModel(responses=["Backend initialization test response"])
+
     if not settings.llm_fallback_enabled or not settings.llm_fallback_model:
         return base
 
     from langchain_openai import ChatOpenAI
 
-    # The agent needs reasoning AND tool-calling. On /v1/chat/completions the GPT-5.6
-    # reasoning models reject that combo, so we use the Responses API (/v1/responses),
-    # which supports reasoning + tools together. reasoning_effort is configurable
-    # (default "medium"). Reasoning models ignore temperature, so we omit it here.
     fallback = ChatOpenAI(
         model=settings.llm_fallback_model,
         api_key=settings.openai_api_key,

@@ -27,7 +27,7 @@ echo "▶ [1/3] Triggering remote deployment on GCP VM via gcloud SSH..."
 gcloud compute ssh "$GCP_INSTANCE" \
     --zone="$GCP_ZONE" \
     --project="$GCP_PROJECT" \
-    --command="bash /srv/ai-fashion-designer/app/scripts/vm-update.sh ${BRANCH}"
+    --command="cd /srv/ai-fashion-designer/app && git fetch origin && git checkout -f ${BRANCH} && git pull origin ${BRANCH} && bash scripts/vm-update.sh ${BRANCH}"
 
 echo ""
 echo "▶ [2/3] Verifying remote HTTPS endpoint status..."
