@@ -3,6 +3,7 @@ name: PR Automation, Build & On-Demand Deployment
 on:
   pull_request:
     branches: [ main ]
+    types: [ opened, synchronize, reopened, labeled ]
   workflow_dispatch:
     inputs:
       target_branch:
@@ -72,13 +73,13 @@ jobs:
   ephemeral-sanity-check:
     name: 3. Ephemeral Sanity Test & Health Check (GitHub VM)
     needs: build-and-verify
-    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.execution_mode == 'ephemeral_sanity_check' || github.event.inputs.execution_mode == 'build_only') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-sanity-check') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.target_branch }}
+          ref: ${{ github.event.inputs.target_branch || github.ref }}
 
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
@@ -131,7 +132,7 @@ jobs:
   gcp-vm-deploy:
     name: 4. GCP Staging VM Deployment (On-Demand)
     needs: build-and-verify
-    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.execution_mode == 'gcp_vm_deploy' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.execution_mode == 'gcp_vm_deploy') || contains(github.event.pull_request.labels.*.name, 'deploy-gcp') }}
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to GCP VM via SSH
@@ -145,8 +146,8 @@ jobs:
             echo "▶ Updating application repository on GCP VM..."
             cd /srv/ai-fashion-designer/app
             git fetch origin
-            git checkout -f ${{ github.event.inputs.target_branch }}
-            git pull origin ${{ github.event.inputs.target_branch }}
+            git checkout -f ${{ github.event.inputs.target_branch || github.head_ref || 'main' }}
+            git pull origin ${{ github.event.inputs.target_branch || github.head_ref || 'main' }}
 
             echo "▶ Updating Python virtual environment..."
             source venv/bin/activate
@@ -163,6 +164,6 @@ jobs:
             sudo systemctl reload nginx
 
             echo "▶ Verifying Live Endpoint Health..."
-            bash /srv/ai-fashion-designer/app/scripts/vm-update.sh ${{ github.event.inputs.target_branch }}
+            bash /srv/ai-fashion-designer/app/scripts/vm-update.sh ${{ github.event.inputs.target_branch || github.head_ref || 'main' }}
 
             echo "✅ GCP VM Deployment completed successfully!"
