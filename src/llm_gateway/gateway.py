@@ -1,54 +1,48 @@
-"""LLM gateway facade.
+"""LLM gateway facade — single entry point for LLM connectivity.
 
-Single place that owns LLM *connectivity*: provider selection (via the global
-`llm_backend` setting), retry with exponential backoff, error wrapping, and
-metadata-only logging. Business modules call `generate_text` / `get_chat_model` and
-never touch a provider SDK directly, so switching backend or model is a config change.
-
-Prompt construction and response parsing stay in the business modules (SRP).
+Text tasks use a LiteLLM Router (Vertex primary, OpenAI fallback, cooldown).
+The agent uses a LangChain chat model with a native OpenAI fallback chain.
+Callers stay provider-agnostic and pass a task label; the `model` argument is
+currently DORMANT (all tasks resolve to the single primary group) — kept so
+re-enabling per-task tiers later is a config change, not a caller change.
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 import time
 
 from src.config import get_settings
-from src.llm_gateway.providers import LiteLLMProvider, LLMProvider, VertexProvider
+from src.llm_gateway.callbacks import register_llm_callbacks
+from src.llm_gateway.providers import PRIMARY_GROUP, build_chat_model, build_text_router
 
 logger = logging.getLogger(__name__)
 
-# Matches CLAUDE.md §8: 3 retries with exponential backoff (1s, 2s, 4s).
-MAX_RETRIES = 3
-BACKOFF_SECONDS = [1, 2, 4]
-
-# Registry — add a backend by adding a class + one entry (Open/Closed).
-_PROVIDERS: dict[str, LLMProvider] = {
-    "vertex": VertexProvider(),
-    "litellm": LiteLLMProvider(),
-}
+_router = None
+_router_lock = threading.Lock()
 
 
 class LLMGatewayError(RuntimeError):
-    """Raised when all LLM attempts fail.
+    """Raised when all LLM attempts (primary + fallback) fail.
 
     Subclasses RuntimeError so existing callers that catch RuntimeError keep working.
     """
 
 
-def _resolve_provider() -> tuple[str, LLMProvider]:
-    """Resolve the configured language model provider.
-    
-    Returns:
-    	(tuple[str, LLMProvider]): The configured backend name and its provider.
+def _get_router():
+    """Lazily build + cache the text Router, registering observability callbacks once.
+
+    Double-checked locking: FastAPI runs sync handlers in a threadpool, so concurrent
+    first requests could otherwise each build a Router and race on the module globals.
     """
-    backend = get_settings().llm_backend
-    provider = _PROVIDERS.get(backend)
-    if provider is None:
-        raise LLMGatewayError(
-            f"Unknown llm_backend '{backend}'. Valid options: {sorted(_PROVIDERS)}."
-        )
-    return backend, provider
+    global _router
+    if _router is None:
+        with _router_lock:
+            if _router is None:
+                register_llm_callbacks()
+                _router = build_text_router(get_settings())
+    return _router
 
 
 def generate_text(
@@ -59,73 +53,41 @@ def generate_text(
     user_message: str,
     temperature: float | None = None,
 ) -> str:
-    """Generate text using the configured backend with centralized retries.
-    
-    Parameters:
-        task (str): Caller label included in gateway metadata.
-        model (str): Model identifier.
-        system_prompt (str): System instruction for the model.
-        user_message (str): User message to process.
-        temperature (float | None): Optional sampling temperature.
-    
-    Returns:
-        str: Generated text.
-    
-    Raises:
-        LLMGatewayError: If all configured retry attempts fail.
+    """Generate text via the Router (primary + fallback + cooldown owned by LiteLLM).
+
+    `task` is a caller label for logging. `model` is currently dormant (routed to the
+    single primary group). Raises LLMGatewayError if primary AND fallback both fail.
     """
-    backend, provider = _resolve_provider()
+    router = _get_router()
     start = time.monotonic()
-    last_error: Exception | None = None
+    kwargs: dict = {
+        "model": PRIMARY_GROUP,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+    }
+    if temperature is not None:
+        kwargs["temperature"] = temperature
 
-    for attempt in range(MAX_RETRIES):
-        try:
-            text = provider.generate_text(
-                model=model,
-                system_prompt=system_prompt,
-                user_message=user_message,
-                temperature=temperature,
-            )
-            latency_ms = int((time.monotonic() - start) * 1000)
-            logger.info(
-                "llm_gateway ok — task=%s backend=%s model=%s attempt=%d latency_ms=%d",
-                task, backend, model, attempt + 1, latency_ms,
-            )
-            return text
-        except Exception as exc:  # provider-agnostic: wrap any transport failure
-            last_error = exc
-            logger.warning(
-                "llm_gateway retry — task=%s backend=%s model=%s attempt=%d/%d error=%s",
-                task, backend, model, attempt + 1, MAX_RETRIES, type(exc).__name__,
-            )
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(BACKOFF_SECONDS[attempt])
+    try:
+        response = router.completion(**kwargs)
+    except Exception as exc:  # provider-agnostic: Router already retried + failed over
+        raise LLMGatewayError(f"LLM call failed (task={task}): {exc}") from exc
 
-    raise LLMGatewayError(
-        f"LLM call failed after {MAX_RETRIES} attempts "
-        f"(task={task}, backend={backend}, model={model}): {last_error}"
-    )
+    latency_ms = int((time.monotonic() - start) * 1000)
+    used_model = getattr(response, "model", "?")
+    logger.info("llm_gateway ok — task=%s model=%s latency_ms=%d", task, used_model, latency_ms)
+    # Guard the `-> str` contract: a completion can carry content=None; callers call
+    # .strip() and only catch RuntimeError, so an AttributeError here would escape.
+    return response.choices[0].message.content or ""
 
 
 def get_chat_model(*, task: str, model: str, temperature: float = 0):
+    """Return the agent chat model (Vertex primary + native OpenAI fallback chain).
+
+    `model` is dormant (uses settings.llm_primary_model). Tool-calling is native on
+    both providers. Fallback is per-request (no cooldown) — an accepted trade-off.
     """
-    Provide the Vertex chat model used by tool-calling agents.
-    
-    The chat model is always resolved from the Vertex provider, regardless of the configured text-generation backend.
-    
-    Parameters:
-        task (str): Label identifying the agent task.
-        model (str): Model name to use.
-        temperature (float): Sampling temperature.
-    
-    Returns:
-        BaseChatModel: A Vertex chat model configured for the requested model and temperature.
-    """
-    configured_backend = get_settings().llm_backend
-    if configured_backend != "vertex":
-        logger.info(
-            "llm_gateway chat model — task=%s: backend=%s configured, but chat is "
-            "vertex-pinned (LiteLLM chat deferred)", task, configured_backend,
-        )
-    logger.info("llm_gateway chat model — task=%s backend=vertex model=%s", task, model)
-    return _PROVIDERS["vertex"].get_chat_model(model=model, temperature=temperature)
+    logger.info("llm_gateway chat model — task=%s (primary + fallback chain)", task)
+    return build_chat_model(get_settings(), temperature=temperature)

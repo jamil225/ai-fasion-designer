@@ -101,22 +101,12 @@ def curate_outfits(
     combo_count: int,
     system_prompt: str | None = None,
 ) -> dict:
-    """
-    Curate outfit combinations from product search results using the language model.
-    
-    Parameters:
-        original_query (str): The user's outfit request.
-        products (list[dict]): Product search results provided to the curator.
-        combo_count (int): Maximum number of outfit combinations to request.
-        system_prompt (str | None): Optional system prompt override.
-    
-    Returns:
-        dict: The parsed curation payload, including `combos` and
-            `standalone_outfits` when provided by the model.
-    
-    Raises:
-        RuntimeError: If the model response cannot be parsed as JSON after all
-            parse attempts.
+    """Curate outfit combinations from vector search results via the LLM gateway.
+
+    The LLM call (via the gateway: Vertex primary, OpenAI failover) returns JSON that this function
+    parses. Returns a dict with 'combos' and 'standalone_outfits' arrays.
+    Each combo references products by product_id only — the caller resolves
+    these back to full product metadata.
     """
     effective_system_prompt = system_prompt if system_prompt is not None else STYLIST_SYSTEM_PROMPT
     products_json = _prepare_products_for_prompt(products)

@@ -4,13 +4,14 @@ pydantic
 pydantic-settings
 python-dotenv
 google-genai>=1.0
-openai
+openai>=2.45.0  # floor for langchain-openai; litellm's ==2.30.0 pin is conservative, verified OK at runtime
 pinecone
 google-auth
 PyJWT
 langchain
 langgraph
 langchain-google-genai>=4.0.0
+langchain-openai
 pyyaml>=6.0,<7.0
 langsmith
 litellm

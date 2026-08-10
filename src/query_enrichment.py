@@ -36,16 +36,15 @@ def enrich_query(
     *,
     system_prompt: str | None = None,
 ) -> str:
-    """
-    Enrich a raw fashion search query with inferred attributes and relevant fashion vocabulary.
-    
-    Parameters:
-        model_name (str): Name of the language model used for enrichment.
-        query (str): User's original fashion search query.
-        system_prompt (str | None): Optional prompt that overrides the default enrichment instructions.
-    
-    Returns:
-        str: The enriched search query with surrounding whitespace removed.
+    """Enrich a user's raw fashion query into a semantically richer search string.
+
+    Delegates the LLM call to the gateway (Vertex primary, OpenAI failover) to expand
+    the query with inferred attributes, synonyms, and fashion vocabulary aligned with the
+    embedding text format used at ingestion.
+
+    system_prompt: optional override for the system prompt. Defaults to the
+    module-level QUERY_ENRICHMENT_SYSTEM_PROMPT constant so existing callers
+    are unaffected.
     """
     prompt = system_prompt if system_prompt is not None else QUERY_ENRICHMENT_SYSTEM_PROMPT
     user_message = QUERY_ENRICHMENT_USER_TEMPLATE.format(query=query)

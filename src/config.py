@@ -64,6 +64,8 @@ class Settings(BaseSettings):
     google_cloud_project: str = ""
     google_cloud_location: str = "us-central1"
     google_genai_use_vertexai: bool = True
+    # NOTE: per-task model names below are RESERVED for future per-task/tier routing.
+    # Currently DORMANT — all text tasks + the agent use llm_primary_model (see llm_gateway).
     # Vision model (needs multimodal capability) — flash-lite is cheapest
     vision_model_name: str = "gemini-2.5-flash-lite"
     # Merge model (text-only, can use same cheap model)
@@ -77,9 +79,26 @@ class Settings(BaseSettings):
     # LiteLLM sandbox endpoint model (vertex_ai/ prefix keeps calls on ADC + Vertex billing)
     litellm_test_model_name: str = "vertex_ai/gemini-2.5-flash"
 
+    # --- Multi-provider failover (2026-07-13 design) ---
+    # Single Vertex HIGH model used for ALL text tasks + the agent (Router prepends vertex_ai/).
+    llm_primary_model: str = "gemini-2.5-pro"
+    # Single OpenAI failover model for ALL tasks. MUST support tool-calling (agent uses it too).
+    # No safe default — set LLM_FALLBACK_MODEL in .env (e.g. gpt-5.6-terra).
+    llm_fallback_model: str = ""
+    # Master switch. False => Vertex-only (pre-failover behavior).
+    llm_fallback_enabled: bool = True
+    # LiteLLM Router cooldown: park a deployment for N seconds after allowed_fails failures.
+    llm_cooldown_seconds: int = 60
+    llm_allowed_fails: int = 3
+    # Agent OpenAI fallback reasoning level via the Responses API: none|low|medium|high.
+    # The agent fallback uses /v1/responses so reasoning + tool-calling work together
+    # (gpt-5.6 reasoning models reject tools on /v1/chat/completions unless effort=none).
+    llm_fallback_reasoning_effort: str = "medium"
+
     # LLM gateway backend selector — "vertex" (default, cheapest via ADC) or "litellm".
     # Global switch: all gateway text calls use this backend. Per-task model names are
     # unchanged (search_enrichment_model_name, stylist_model_name, etc.).
+    # superseded for text by the Router; retained.
     llm_backend: str = "vertex"
 
     # Virtual try-on
