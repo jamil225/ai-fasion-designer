@@ -12,7 +12,7 @@
 set -euo pipefail
 
 GCP_ZONE="asia-south1-a"
-GCP_INSTANCE="ai-fashion-designer-vm"
+GCP_INSTANCE="ai-fashion-designer"
 GCP_PROJECT="peopleverdict-696f3"
 BRANCH="${1:-main}"
 LIVE_URL="https://8.234.93.21.nip.io/"
