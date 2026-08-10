@@ -64,13 +64,13 @@ sudo systemctl reload nginx
 # ─── 5. Health Verification ───
 echo "▶ [5/5] Verifying API Health..."
 HEALTH_STATUS="000"
-for i in {1..5}; do
+for i in {1..10}; do
     sleep 2
     HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8083/v1/health || echo "000")
     if [ "$HEALTH_STATUS" -eq 200 ]; then
         break
     fi
-    echo "  Waiting for uvicorn worker initialization... (Attempt $i/5)"
+    echo "  Waiting for uvicorn worker initialization... (Attempt $i/10)"
 done
 
 if [ "$HEALTH_STATUS" -eq 200 ]; then
