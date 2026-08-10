@@ -41,7 +41,19 @@ def extract_metadata(
     image_path: Path,
     model_name: str,
 ) -> dict:
-    """Call Gemini vision model via Vertex AI to extract raw visual metadata from an image."""
+    """
+    Extract visual metadata from an image using a Vertex AI vision model.
+    
+    Parameters:
+        image_path (Path): Path to the image to analyze.
+        model_name (str): Vertex AI model name to use.
+    
+    Returns:
+        dict: Parsed visual metadata augmented with the raw model output and model version.
+    
+    Raises:
+        RuntimeError: If metadata extraction fails after all retry attempts.
+    """
     _s = get_settings()
     client = genai.Client(vertexai=True, project=_s.google_cloud_project, location=_s.google_cloud_location)
 

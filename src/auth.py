@@ -42,7 +42,16 @@ def verify_google_id_token(credential: str, google_client_id: str) -> dict:
 
 
 def create_session_token(user_info: dict, session_secret: str) -> str:
-    """Sign a short-lived JWT containing user display info."""
+    """
+    Create a short-lived signed session token containing user profile information.
+    
+    Parameters:
+        user_info (dict): User data containing `email`, `name`, and `picture`.
+        session_secret (str): Secret used to sign the token.
+    
+    Returns:
+        str: The encoded JWT session token.
+    """
     payload = {
         "email": user_info["email"],
         "name": user_info["name"],
@@ -56,7 +65,17 @@ def create_session_token(user_info: dict, session_secret: str) -> str:
 
 
 def verify_session_token(token: str, session_secret: str) -> dict:
-    """Verify our own signed session JWT. Returns user info or None."""
+    """
+    Verify a signed session token and extract its user information.
+    
+    Parameters:
+        token (str): The signed session JWT to verify.
+        session_secret (str): Secret used to verify the token signature.
+    
+    Returns:
+        dict | None: User information containing the email, name, and picture when
+            the token is valid; `None` if the token is expired or invalid.
+    """
     try:
         payload = jwt.decode(token, session_secret, algorithms=["HS256"])
         return {
@@ -77,9 +96,14 @@ async def verify_auth(
     api_key: str | None = Security(API_KEY_HEADER),
     settings: Settings = Depends(get_settings),
 ) -> str:
-    """Dual auth: try session cookie first, then fall back to API key.
-
-    Returns the user identifier (email or 'api-key-user').
+    """
+    Authenticate a request using a session cookie or API key.
+    
+    Returns:
+    	str: The authenticated user's email or ``"api-key-user"``.
+    
+    Raises:
+    	HTTPException: If neither authentication method succeeds.
     """
     # 1. Try HttpOnly session cookie
     session_token = request.cookies.get(SESSION_COOKIE_NAME)

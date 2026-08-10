@@ -23,10 +23,28 @@ class LLMProvider(Protocol):
         system_prompt: str,
         user_message: str,
         temperature: float | None,
-    ) -> str: ...
+    ) -> str: """
+        Generate text from a model using system and user prompts.
+        
+        Parameters:
+            model (str): The model identifier.
+            system_prompt (str): Instructions that define the model's behavior.
+            user_message (str): The user's input.
+            temperature (float | None): Sampling temperature, or `None` to use the provider default.
+        
+        Returns:
+            str: The generated text.
+        """
+        ...
 
     def get_chat_model(self, *, model: str, temperature: float):
-        """Return a LangChain BaseChatModel for tool-calling agents."""
+        """
+        Rejects requests for an unsupported chat model.
+        
+        Raises:
+            LLMGatewayError: Always, because this provider does not support chat models
+                for tool-calling agents.
+        """
         ...
 
 
@@ -34,6 +52,7 @@ class VertexProvider:
     """Google Vertex AI via ADC — the default, cheapest path."""
 
     def _settings(self) -> Settings:
+        """Load the application settings."""
         return get_settings()
 
     def generate_text(
@@ -46,6 +65,18 @@ class VertexProvider:
     ) -> str:
         # Imported lazily so switching to the litellm backend doesn't require google-genai
         # at call time (and vice-versa).
+        """
+        Generate text using a Google Vertex AI model.
+        
+        Parameters:
+            model (str): The Vertex AI model to use.
+            system_prompt (str): Instructions that guide generation.
+            user_message (str): The user input to include in the request.
+            temperature (float | None): Sampling temperature, or None to use the model default.
+        
+        Returns:
+            str: The generated text.
+        """
         from google import genai
 
         s = self._settings()
@@ -69,6 +100,16 @@ class VertexProvider:
         return response.text
 
     def get_chat_model(self, *, model: str, temperature: float):
+        """
+        Create a LangChain chat model configured for the requested model and Vertex AI settings.
+        
+        Parameters:
+        	model (str): The model identifier.
+        	temperature (float): The sampling temperature.
+        
+        Returns:
+        	A configured LangChain chat model.
+        """
         from langchain_google_genai import ChatGoogleGenerativeAI
 
         s = self._settings()
@@ -91,6 +132,7 @@ class LiteLLMProvider:
     """
 
     def _settings(self) -> Settings:
+        """Load the application settings."""
         return get_settings()
 
     def generate_text(
@@ -101,6 +143,18 @@ class LiteLLMProvider:
         user_message: str,
         temperature: float | None,
     ) -> str:
+        """
+        Generate text using the configured LiteLLM model.
+        
+        Parameters:
+            model (str): Model name or provider-qualified model identifier.
+            system_prompt (str): Instructions that guide the model's behavior.
+            user_message (str): User content sent to the model.
+            temperature (float | None): Sampling temperature, or None to use the provider default.
+        
+        Returns:
+            str: Generated text.
+        """
         import litellm
 
         s = self._settings()
@@ -125,6 +179,12 @@ class LiteLLMProvider:
         # Deferred: ChatLiteLLM + vertex_ai/gemini-* + tool-calling has open 2026 bugs
         # (tool_choice="any" unsupported, null/malformed tool-call responses). The agent
         # stays on Vertex. Import here to avoid a hard dependency at module load.
+        """
+        Indicates that chat-model access is unavailable for the LiteLLM provider.
+        
+        Raises:
+            LLMGatewayError: Always raised because this provider does not support chat models.
+        """
         from src.llm_gateway.gateway import LLMGatewayError
 
         raise LLMGatewayError(

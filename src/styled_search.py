@@ -38,9 +38,18 @@ def run_styled_search(
     settings: Settings,
     request: StyledSearchRequest,
 ) -> StyledSearchResponse:
-    """Orchestrate the two-agent styled search pipeline.
-
-    Flow: enrich query → embed → Pinecone → stylist curation → structured combos.
+    """
+    Run a styled product search and assemble curated outfit recommendations.
+    
+    Query enrichment falls back to the original query when enrichment raises a
+    `RuntimeError`. Results below the configured score threshold are excluded, and
+    only products returned by the vector search are included in the curated
+    recommendations.
+    
+    Returns:
+        StyledSearchResponse: Search results containing outfit combinations,
+            standalone outfits, query enrichment details, result count, and
+            latency.
     """
     start_time = time.time()
 

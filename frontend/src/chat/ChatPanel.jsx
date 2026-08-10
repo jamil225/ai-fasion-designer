@@ -13,6 +13,11 @@ const THINKING_STAGES = [
   { delay: 10000, text: "Almost there…" },
 ];
 
+/**
+ * Provides staged progress text while an operation is loading.
+ * @param {boolean} isLoading - Whether to display the progress stages.
+ * @return {string|null} The current progress text, or `null` when loading is inactive.
+ */
 function useThinkingStage(isLoading) {
   const [stage, setStage] = useState(null);
   const timersRef = useRef([]);
@@ -36,10 +41,20 @@ function useThinkingStage(isLoading) {
   return stage;
 }
 
+/**
+ * Extract the final segment from a slash- or backslash-delimited path.
+ * @param {string} path - The path to process.
+ * @return {string} The final path segment, or an empty string for a falsy path.
+ */
 function basename(path) {
   return (path || "").split("/").pop().split("\\").pop();
 }
 
+/**
+ * Render an outfit item image with a placeholder fallback and optional lightbox viewing.
+ * @param {Object} props - Component properties.
+ * @param {Object} props.item - Outfit item data used to resolve and label the image.
+ */
 function ComboItemImage({ item }) {
   const [imageUrl, setImageUrl] = useState(null);
   const [imageError, setImageError] = useState(false);
@@ -95,8 +110,8 @@ function ComboItemImage({ item }) {
 }
 
 /**
- * ChatPanel - right-side rail docked into the existing search screen.
- * Self-contained: does NOT reuse ResultsGrid or ProductCard.
+ * Render the AI Stylist chat panel with conversation controls and outfit recommendations.
+ * @param {Function} onCombosChange - Callback invoked when outfit combinations change.
  */
 export default function ChatPanel({ onCombosChange }) {
   const {

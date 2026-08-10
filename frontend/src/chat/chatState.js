@@ -1,6 +1,10 @@
 import { useState, useCallback, useRef } from "react";
 import { sendMessage, sendResume } from "./chatApi";
 
+/**
+ * Generates a unique identifier for a chat thread.
+ * @return {string} A thread identifier.
+ */
 function generateThreadId() {
   // crypto.randomUUID() is available in modern browsers
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -11,10 +15,10 @@ function generateThreadId() {
 }
 
 /**
- * Custom hook exposing the chat state and actions.
- *
- * Returns { threadId, messages, pendingInterrupt, lastCombos, isLoading,
- *           error, send, resume, reset }
+ * Manages chat state and provides actions for sending, resuming, canceling, and resetting conversations.
+ * @param {Object} [options] - Hook options.
+ * @param {Function} [options.onCombosChange] - Callback invoked when response combos are available or cleared.
+ * @returns {Object} The current chat state and chat action functions.
  */
 export function useChatState({ onCombosChange } = {}) {
   const [threadId, setThreadId] = useState(generateThreadId);
