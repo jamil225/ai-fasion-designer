@@ -42,7 +42,16 @@ def verify_google_id_token(credential: str, google_client_id: str) -> dict:
 
 
 def create_session_token(user_info: dict, session_secret: str) -> str:
-    """Sign a short-lived JWT containing user display info."""
+    """
+    Create a short-lived signed session token containing user profile information.
+    
+    Parameters:
+        user_info (dict): User data containing `email`, `name`, and `picture`.
+        session_secret (str): Secret used to sign the token.
+    
+    Returns:
+        str: The encoded JWT session token.
+    """
     payload = {
         "email": user_info["email"],
         "name": user_info["name"],
@@ -56,7 +65,17 @@ def create_session_token(user_info: dict, session_secret: str) -> str:
 
 
 def verify_session_token(token: str, session_secret: str) -> dict:
-    """Verify our own signed session JWT. Returns user info or None."""
+    """
+    Verify a signed session token and extract its user information.
+    
+    Parameters:
+        token (str): The signed session JWT to verify.
+        session_secret (str): Secret used to verify the token signature.
+    
+    Returns:
+        dict | None: User information containing the email, name, and picture when
+            the token is valid; `None` if the token is expired or invalid.
+    """
     try:
         payload = jwt.decode(token, session_secret, algorithms=["HS256"])
         return {
@@ -77,9 +96,14 @@ async def verify_auth(
     api_key: str | None = Security(API_KEY_HEADER),
     settings: Settings = Depends(get_settings),
 ) -> str:
-    """Dual auth: try session cookie first, then fall back to API key.
-
-    Returns the user identifier (email or 'api-key-user').
+    """
+    Authenticate a request using a session cookie or API key.
+    
+    Returns:
+    	str: The authenticated user's email or ``"api-key-user"``.
+    
+    Raises:
+    	HTTPException: If neither authentication method succeeds.
     """
     # 1. Try HttpOnly session cookie
     session_token = request.cookies.get(SESSION_COOKIE_NAME)
@@ -96,3 +120,33 @@ async def verify_auth(
 
     logger.warning("Auth FAILED — no valid session or API key")
     raise HTTPException(status_code=401, detail="Authentication required")
+
+
+async def verify_admin(
+    request: Request,
+    api_key: str | None = Security(API_KEY_HEADER),
+    settings: Settings = Depends(get_settings),
+) -> str:
+    """Require admin privileges for destructive operations.
+
+    Grants access if:
+      - The request carries a valid ADMIN_API_KEY, or
+      - The session user's email is in ADMIN_EMAILS.
+
+    Returns the admin identifier (email or 'admin-api-key-user').
+    """
+    # 1. Dedicated admin API key (highest priority)
+    if api_key and settings.admin_api_key and api_key == settings.admin_api_key:
+        logger.info("Admin auth OK via admin API key")
+        return "admin-api-key-user"
+
+    # 2. Session cookie — check if user email is in the admin list
+    session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    if session_token and settings.session_secret:
+        user_info = verify_session_token(session_token, settings.session_secret)
+        if user_info and user_info["email"] in settings.admin_emails:
+            logger.info("Admin auth OK via session, user=%s", user_info["email"])
+            return user_info["email"]
+
+    logger.warning("Admin auth FAILED — insufficient privileges")
+    raise HTTPException(status_code=403, detail="Admin privileges required")

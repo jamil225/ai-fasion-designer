@@ -2,6 +2,9 @@ import { useEffect, useRef } from "react";
 import { useAuth } from "./AuthContext";
 import "./LoginPage.css";
 
+/**
+ * Renders the AI Fashion sign-in page with Google authentication.
+ */
 export default function LoginPage() {
   const { initializeGoogleButton, googleClientId } = useAuth();
   const googleBtnRef = useRef(null);

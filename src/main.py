@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.agent.routes import router as chat_router
-from src.auth import verify_auth
+from src.auth import verify_admin, verify_auth
 from src.auth_routes import router as auth_router
 from src.config import Settings, get_settings
 from src.ingestion import get_job_status, run_ingestion
@@ -46,6 +46,9 @@ from src.styled_search import run_styled_search
 # Activate LangSmith tracing — must set os.environ BEFORE langsmith is imported
 # by any route handler, so we do it here at module load time.
 def _configure_langsmith() -> None:
+    """
+    Configure LangSmith tracing from application settings and verify connectivity when enabled.
+    """
     from src.config import get_settings
     s = get_settings()
     if s.langchain_tracing_v2 and s.langchain_api_key:
@@ -106,7 +109,10 @@ async def list_images(settings: Settings = Depends(get_settings)) -> dict:
 async def serve_image(
     filename: str, settings: Settings = Depends(get_settings)
 ) -> FileResponse:
-    image_path = Path(settings.image_folder_path) / filename
+    folder = Path(settings.image_folder_path).resolve()
+    image_path = (folder / filename).resolve()
+    if not image_path.is_relative_to(folder):
+        raise HTTPException(status_code=400, detail="Invalid filename")
     if not image_path.exists():
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(image_path)
@@ -167,7 +173,7 @@ async def ingest_status(job_id: str) -> IngestStatusResponse:
 
 @app.delete(
     "/v1/pinecone/clear",
-    dependencies=[Depends(verify_auth)],
+    dependencies=[Depends(verify_admin)],
 )
 async def clear_pinecone_index(
     settings: Settings = Depends(get_settings),
@@ -204,6 +210,15 @@ async def styled_search(
     request: StyledSearchRequest,
     settings: Settings = Depends(get_settings),
 ) -> StyledSearchResponse:
+    """Run a styled fashion search using the provided request and application settings.
+    
+    Parameters:
+        request (StyledSearchRequest): Search criteria and styling preferences.
+        settings (Settings): Application configuration used to perform the search.
+    
+    Returns:
+        StyledSearchResponse: Styled search results.
+    """
     return run_styled_search(settings=settings, request=request)
 
 
@@ -216,4 +231,13 @@ async def litellm_test(
     request: LiteLLMTestRequest,
     settings: Settings = Depends(get_settings),
 ) -> LiteLLMTestResponse:
+    """
+    Run a LiteLLM test with the provided request and application settings.
+    
+    Parameters:
+        request (LiteLLMTestRequest): Test request parameters.
+    
+    Returns:
+        LiteLLMTestResponse: The LiteLLM test result.
+    """
     return run_litellm_test(settings=settings, request=request)

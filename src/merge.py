@@ -46,11 +46,24 @@ def merge_product_data(
     vision_output: dict,
     csv_row: dict | None,
 ) -> dict:
-    """Merge vision output with vendor CSV data using Gemini via Vertex AI.
-
-    CSV corrects factual fields (colors, category, occasion).
-    Vision provides descriptive fields (style_tags, caption, pattern, fabric_hint).
-    If no CSV row, returns vision-only fallback without calling the LLM.
+    """
+    Merge vision analysis with vendor data into a standardized product record.
+    
+    When vendor data is unavailable, returns a vision-based fallback without calling
+    the model. Otherwise, vendor data supplies factual fields and vision analysis
+    supplies descriptive fields.
+    
+    Parameters:
+        model_name (str): Vertex AI model used to merge the product data.
+        vision_output (dict): Product attributes generated from image analysis.
+        csv_row (dict | None): Vendor product data, or None to use the vision-only
+            fallback.
+    
+    Returns:
+        dict: Merged product attributes, including the resolved vision wear type.
+    
+    Raises:
+        RuntimeError: If the merge fails after all retry attempts.
     """
     if csv_row is None:
         return _vision_only_fallback(vision_output)

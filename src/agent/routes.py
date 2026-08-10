@@ -40,11 +40,27 @@ router = APIRouter(prefix="/v1/chat", tags=["chat"])
 # ---------------------------------------------------------------------------
 
 def _read_state(thread_id: str) -> dict:
+    """Read the stored agent state for a thread.
+    
+    Parameters:
+    	thread_id (str): Identifier of the thread whose state to retrieve.
+    
+    Returns:
+    	dict: The thread's state values, or an empty dictionary when no state is available.
+    """
     state = AGENT.get_state(config={"configurable": {"thread_id": thread_id}})
     return dict(state.values) if state and state.values else {}
 
 
 def _detect_interrupt(thread_id: str) -> Optional[dict]:
+    """Find the first pending interrupt value for a conversation thread.
+    
+    Parameters:
+    	thread_id (str): Identifier of the conversation thread.
+    
+    Returns:
+    	Optional[dict]: The first pending interrupt value, or `None` when no interrupt exists.
+    """
     state = AGENT.get_state(config={"configurable": {"thread_id": thread_id}})
     if not state or not state.tasks:
         return None
@@ -55,6 +71,15 @@ def _detect_interrupt(thread_id: str) -> Optional[dict]:
 
 
 def _final_text(state_values: dict) -> str:
+    """
+    Extract the most recent text-only assistant message from graph state.
+    
+    Parameters:
+        state_values (dict): State values containing the conversation messages.
+    
+    Returns:
+        str: The extracted assistant text, or an empty string when no suitable message exists.
+    """
     for msg in reversed(state_values.get("messages") or []):
         if isinstance(msg, AIMessage) and not getattr(msg, "tool_calls", None):
             if isinstance(msg.content, str):
@@ -73,6 +98,15 @@ def _final_text(state_values: dict) -> str:
 
 @router.post("", dependencies=[Depends(verify_auth)])
 async def chat(body: dict = Body(...)) -> dict:
+    """
+    Process a new chat message or resume a pending conversation and return the resulting response.
+    
+    Parameters:
+        body (dict): Request data containing a thread ID and exactly one of a new message or resume decision.
+    
+    Returns:
+        dict: A serialized final chat response or pending-interrupt response.
+    """
     request_id = uuid.uuid4().hex
     start = time.perf_counter()
 
@@ -175,6 +209,15 @@ async def chat(body: dict = Body(...)) -> dict:
 # ---------------------------------------------------------------------------
 
 def _extract_pending(state) -> Optional[PendingAction]:
+    """
+    Extracts the first pending action from the graph state.
+    
+    Parameters:
+        state: Graph state containing tasks and possible interrupts.
+    
+    Returns:
+        PendingAction: The first pending action with its name and question, or `None` when no interrupt is pending.
+    """
     if not state or not state.tasks:
         return None
     for task in state.tasks:
@@ -187,6 +230,15 @@ def _extract_pending(state) -> Optional[PendingAction]:
 
 
 def _serialize_messages(state_values: dict) -> list[dict]:
+    """
+    Serialize human and assistant messages into role-content dictionaries.
+    
+    Parameters:
+    	state_values (dict): State values containing the messages to serialize.
+    
+    Returns:
+    	list[dict]: Serialized user and assistant messages.
+    """
     out: list[dict] = []
     for msg in state_values.get("messages") or []:
         if isinstance(msg, HumanMessage):
@@ -202,6 +254,18 @@ def _serialize_messages(state_values: dict) -> list[dict]:
 
 @router.get("/threads/{thread_id}", dependencies=[Depends(verify_auth)])
 async def get_thread(thread_id: str) -> dict:
+    """
+    Return diagnostic state for a chat thread.
+    
+    Parameters:
+        thread_id (str): Identifier of the thread to inspect.
+    
+    Returns:
+        dict: Thread messages, pending action, turn count, gathered slots, and tool trace.
+    
+    Raises:
+        HTTPException: If the thread does not exist.
+    """
     state = AGENT.get_state(config={"configurable": {"thread_id": thread_id}})
     if not state or not state.values:
         raise HTTPException(status_code=404, detail="Thread not found.")

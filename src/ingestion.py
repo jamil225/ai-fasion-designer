@@ -44,6 +44,16 @@ def scan_image_folder(folder_path: str) -> list[Path]:
 
 
 def run_ingestion(settings: Settings, mode: IngestMode) -> str:
+    """
+    Run the image ingestion pipeline and track its progress.
+    
+    Parameters:
+        settings (Settings): Configuration for image processing, model access, and vector storage.
+        mode (IngestMode): Determines whether previously ingested images may be skipped.
+    
+    Returns:
+        str: The identifier of the recorded ingestion job.
+    """
     job_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc)
 

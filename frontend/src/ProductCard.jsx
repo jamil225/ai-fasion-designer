@@ -3,6 +3,13 @@ import { getImageUrl } from "./api";
 import ImageLightbox from "./ImageLightbox";
 import "./ProductCard.css";
 
+/**
+ * Render a product card with image details, metadata, and optional lightbox viewing.
+ * @param {Object} result - Product data used to populate the card.
+ * @param {number} index - Card position used to stagger its entrance animation.
+ * @param {boolean} isBrowseMode - Whether to display the compact browse-mode layout.
+ * @return {JSX.Element} The rendered product card.
+ */
 export default function ProductCard({ result, index, isBrowseMode }) {
   const [imageUrl, setImageUrl] = useState(null);
   const [imageError, setImageError] = useState(false);

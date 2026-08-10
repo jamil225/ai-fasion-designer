@@ -27,6 +27,12 @@ class GuardrailsConfig(BaseModel):
 
     @classmethod
     def load(cls) -> "GuardrailsConfig":
+        """
+        Load guardrails configuration from the YAML configuration file.
+        
+        Returns:
+        	GuardrailsConfig: The configured guardrails settings, or default settings when the file is missing or does not contain a top-level ``guardrails`` section.
+        """
         if not _GUARDRAILS_CONFIG_PATH.exists():
             return cls()
         with open(_GUARDRAILS_CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -37,6 +43,12 @@ class GuardrailsConfig(BaseModel):
 
 
 def _load_best_match_score_threshold() -> float:
+    """
+    Load the configured best-match score threshold from the application configuration.
+    
+    Returns:
+        float: The configured threshold, or 0.20 when the configuration file or setting is unavailable.
+    """
     if not _APPLICATION_CONFIG_PATH.exists():
         return 0.20
 
@@ -116,6 +128,10 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     session_secret: str = ""
 
+    # Admin authorization — restricts destructive operations
+    admin_api_key: str = ""
+    admin_emails: list[str] = Field(default_factory=list)
+
     # Agent (v3.0)
     agent_model_name: str = "gemini-2.5-pro"
     agent_recursion_limit: int = 10
@@ -134,8 +150,23 @@ class Settings(BaseSettings):
     @field_validator("agent_required_search_fields", mode="before")
     @classmethod
     def _parse_required_search_fields(cls, v: object) -> object:
+        """Normalize required search fields provided as a comma-separated string.
+        
+        Parameters:
+            v (object): A comma-separated field string or an existing value.
+        
+        Returns:
+            object: A list of trimmed, non-empty field names for string input; otherwise, the original value.
+        """
         if isinstance(v, str):
             return [f.strip() for f in v.split(",") if f.strip()]
+        return v
+
+    @field_validator("admin_emails", mode="before")
+    @classmethod
+    def _parse_admin_emails(cls, v: object) -> object:
+        if isinstance(v, str):
+            return [e.strip() for e in v.split(",") if e.strip()]
         return v
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "populate_by_name": True, "extra": "ignore"}
