@@ -10,10 +10,20 @@ logger = logging.getLogger(__name__)
 
 class OpenAIModerationGuardrail(BaseGuardrail):
     def __init__(self):
+        """Initialize the asynchronous OpenAI client using the configured API key."""
         settings = get_settings()
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
 
     async def validate(self, context: dict) -> GuardrailResult:
+        """
+        Validate input text against OpenAI moderation safety policies.
+        
+        Parameters:
+            context (dict): Context containing the text to moderate under the `"text"` key.
+        
+        Returns:
+            GuardrailResult: A passed result when the text is safe or empty; otherwise, a failed result with the applicable reason.
+        """
         text = context.get("text", "")
         if not text:
             return GuardrailResult(passed=True)

@@ -110,10 +110,15 @@ class ChatInterruptResponse(BaseModel):
 
 
 def _merge_slot_dict(existing: dict[str, str] | None, new: dict[str, str]) -> dict[str, str]:
-    """Dict-merge reducer for gathered_slots.
-
-    Merges new slots into existing ones so that multiple enrich_query calls
-    across turns accumulate slots rather than overwriting the full dict.
+    """
+    Merge newly gathered slot values into existing values.
+    
+    Parameters:
+        existing (dict[str, str] | None): Previously gathered slot values.
+        new (dict[str, str]): Newly gathered slot values.
+    
+    Returns:
+        dict[str, str]: Combined slot values, with new values taking precedence.
     """
     return {**(existing or {}), **(new or {})}
 

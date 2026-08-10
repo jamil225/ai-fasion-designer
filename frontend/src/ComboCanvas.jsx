@@ -3,10 +3,21 @@ import { getImageUrl } from "./api";
 import ImageLightbox from "./ImageLightbox";
 import "./ComboCanvas.css";
 
+/**
+ * Extract the final segment from a slash- or backslash-delimited path.
+ * @param {string} path - The path whose final segment should be extracted.
+ * @return {string} The final path segment, or an empty string when no path is provided.
+ */
 function basename(path) {
   return (path || "").split("/").pop().split("\\").pop();
 }
 
+/**
+ * Renders an outfit item image with loading, error, placeholder, and lightbox states.
+ * @param {Object} props - Component properties.
+ * @param {Object} props.item - Outfit item data used to resolve and describe the image.
+ * @returns {JSX.Element} The rendered image, placeholder, skeleton, or lightbox content.
+ */
 function ComboImage({ item }) {
   const [imageUrl, setImageUrl] = useState(null);
   const [loaded, setLoaded] = useState(false);
@@ -67,6 +78,11 @@ function ComboImage({ item }) {
   );
 }
 
+/**
+ * Render a combo card with its items, metadata, caption, and rationale.
+ * @param {Object} combo - The outfit combination to display.
+ * @param {number} rank - The fallback display rank for the combination.
+ */
 function ComboCard({ combo, rank }) {
   const items = (combo.items || []).slice(0, 3);
 
@@ -114,6 +130,10 @@ function ComboCard({ combo, rank }) {
   );
 }
 
+/**
+ * Renders a grid of outfit combinations or an empty-state message.
+ * @param {Array<Object>} combos - The outfit combinations to display.
+ */
 export default function ComboCanvas({ combos }) {
   if (!combos || combos.length === 0) {
     return (

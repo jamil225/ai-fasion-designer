@@ -7,6 +7,9 @@ import ChatPanel from "./chat/ChatPanel";
 import { searchProducts, listImages } from "./api";
 import "./App.css";
 
+/**
+ * Render the product search, image browsing, and AI fashion design workspace.
+ */
 function Dashboard() {
   const [results, setResults] = useState([]);
   const [status, setStatus] = useState(null);

@@ -11,6 +11,19 @@ const TABS = [
   { id: "catalog", label: "⊟ Catalog", ariaLabel: "Browse catalog" },
 ];
 
+/**
+ * Render tabbed canvas views for outfit combinations and catalog results.
+ * @param {Object} props - Component properties.
+ * @param {Array} props.combos - Outfit combinations to display.
+ * @param {Array} props.results - Catalog results to display.
+ * @param {*} props.status - Current catalog status.
+ * @param {*} props.statusType - Type of the current catalog status.
+ * @param {boolean} props.isLoading - Whether catalog results are loading.
+ * @param {boolean} props.hasSearched - Whether a catalog search has been performed.
+ * @param {boolean} props.isBrowseMode - Whether catalog results are shown in browse mode.
+ * @param {Function} props.onSearch - Handles catalog searches.
+ * @param {Function} props.onBrowse - Handles catalog browsing.
+ */
 export default function CanvasPanel({
   combos,
   results,
