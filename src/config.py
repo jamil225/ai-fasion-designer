@@ -93,6 +93,10 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     session_secret: str = ""
 
+    # Admin authorization — restricts destructive operations
+    admin_api_key: str = ""
+    admin_emails: list[str] = Field(default_factory=list)
+
     # Agent (v3.0)
     agent_model_name: str = "gemini-2.5-pro"
     agent_recursion_limit: int = 10
@@ -113,6 +117,13 @@ class Settings(BaseSettings):
     def _parse_required_search_fields(cls, v: object) -> object:
         if isinstance(v, str):
             return [f.strip() for f in v.split(",") if f.strip()]
+        return v
+
+    @field_validator("admin_emails", mode="before")
+    @classmethod
+    def _parse_admin_emails(cls, v: object) -> object:
+        if isinstance(v, str):
+            return [e.strip() for e in v.split(",") if e.strip()]
         return v
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "populate_by_name": True, "extra": "ignore"}

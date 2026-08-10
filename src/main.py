@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.agent.routes import router as chat_router
-from src.auth import verify_auth
+from src.auth import verify_admin, verify_auth
 from src.auth_routes import router as auth_router
 from src.config import Settings, get_settings
 from src.ingestion import get_job_status, run_ingestion
@@ -167,7 +167,7 @@ async def ingest_status(job_id: str) -> IngestStatusResponse:
 
 @app.delete(
     "/v1/pinecone/clear",
-    dependencies=[Depends(verify_auth)],
+    dependencies=[Depends(verify_admin)],
 )
 async def clear_pinecone_index(
     settings: Settings = Depends(get_settings),
