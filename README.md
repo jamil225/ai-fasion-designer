@@ -1,4 +1,29 @@
-# AI Fashion Designer
+<div align="center">
+
+# 👗 AI Fashion Designer
+
+### **Autonomous AI-Powered Multimodal Fashion Search & Outfit Recommendation Engine**
+
+[![Language](https://img.shields.io/badge/Language-Python_3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Backend](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![UI](https://img.shields.io/badge/UI-React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Vision AI](https://img.shields.io/badge/Vision_AI-Google_Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)](https://ai.google.dev/)
+[![Embeddings](https://img.shields.io/badge/Embeddings-OpenAI_text--embedding--3--small-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com/)
+[![Vector DB](https://img.shields.io/badge/Vector_DB-Pinecone-000000?style=for-the-badge&logo=pinecone&logoColor=white)](https://www.pinecone.io/)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
+
+---
+
+<img src="frontend/public/logo.jpg" width="120" height="120" style="border-radius: 20px;" alt="AI Fashion Designer App Icon" />
+
+<p align="center">
+  <b>Personal AI stylist curating cohesive, top-to-bottom outfits from natural language.</b><br/>
+  Combines Gemini Pro Vision multimodal ingestion with OpenAI embeddings and Pinecone vector retrieval.
+</p>
+
+</div>
+
+---
 
 AI Fashion Designer extracts metadata from garment photos using computer vision, stores 1536-dimensional embeddings in Pinecone, and curates outfit combinations through a LangGraph ReAct agent. A multi-provider LLM gateway handles model calls with Vertex AI as primary and OpenAI as fallback. The web interface includes an outfit layout canvas, image lightbox, and shopping cart.
 
