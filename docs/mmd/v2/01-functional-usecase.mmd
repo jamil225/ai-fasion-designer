@@ -1,0 +1,37 @@
+flowchart LR
+    subgraph INGEST["**1. MULTIMODAL INGESTION PIPELINE**"]
+        direction TB
+        IMG["Garment Images<br/>+ Vendor CSV"]
+        VIS["Gemini Vision<br/>(Vertex AI ADC)<br/>Extracts Metadata"]
+        NORM["Taxonomy Engine<br/>Normalizes Enums"]
+        EMB["OpenAI Embeddings<br/>text-embedding-3-small"]
+        PINE[("Pinecone Vector DB<br/>1536d Cosine Index")]
+        LOG["Ingestion CSV Log<br/>ingestion_log.csv"]
+
+        IMG --> VIS --> NORM --> EMB --> PINE
+        PINE --> LOG
+    end
+
+    subgraph AGENT["**2. LANGGRAPH AGENTIC STYLIST PIPELINE**"]
+        direction TB
+        USR["User Chat Prompt<br/><i>'Casual suit for men'</i>"]
+        GUARD["Guardrail Layer<br/>OpenAI Moderation API"]
+        GRAPH["LangGraph ReAct Agent<br/>FashionAgentState"]
+        GATEWAY["LLM Gateway<br/>Vertex AI (Primary)<br/>OpenAI Failover"]
+        TOOLS["Agent Tools<br/>• check_required_fields<br/>• ask_user (HITL Slot Clarification)<br/>• enrich_query<br/>• search_products (Pinecone)<br/>• curate_outfits (InjectedState)"]
+        OUT["Curated Outfit Combos<br/>+ Rationales + Cart Actions"]
+
+        USR --> GUARD --> GRAPH
+        GRAPH <--> GATEWAY
+        GRAPH <--> TOOLS
+        GRAPH --> OUT
+    end
+
+    INGEST ~~~ AGENT
+
+    style INGEST fill:#f0f7ff,stroke:#0071e3,stroke-width:2px
+    style AGENT fill:#fff7f0,stroke:#e36500,stroke-width:2px
+    style PINE fill:#e8f5e9,stroke:#2e7d32
+    style GATEWAY fill:#f3e5f5,stroke:#7b1fa2
+    style GRAPH fill:#fff3e0,stroke:#e65100
+    style GUARD fill:#ffebee,stroke:#c62828

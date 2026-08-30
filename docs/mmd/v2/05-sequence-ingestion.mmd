@@ -1,0 +1,45 @@
+sequenceDiagram
+    actor Admin
+    participant API as FastAPI /v1/ingest/start
+    participant Ingest as ingestion.py
+    participant Vision as vision.py (Vertex AI)
+    participant Merge as merge.py
+    participant Taxo as taxonomy.py
+    participant Embed as embeddings.py (OpenAI)
+    participant PC as Pinecone Client
+    participant Log as ingestion_log.py
+
+    Admin->>API: POST /v1/ingest/start
+    API->>Ingest: run_ingestion() [Synchronous Sequential]
+    
+    loop For each image in IMAGE_FOLDER_PATH
+        Ingest->>Ingest: Compute SHA-256 file hash
+        Ingest->>PC: hash_exists(file_hash)
+        
+        alt Vector Already Exists (Dedup Hit)
+            PC-->>Ingest: True
+            Note over Ingest: Skip duplicate image
+        else New Image (Dedup Miss)
+            PC-->>Ingest: False
+            Ingest->>Vision: extract_metadata(image_bytes)
+            Vision-->>Ingest: Vision JSON (category, wear_type, color, occasion, style_tags)
+            
+            Ingest->>Merge: merge_product_data(vision_json, csv_lookup)
+            Merge-->>Ingest: Merged Metadata Dict
+            
+            Ingest->>Taxo: normalize_vision_output(merged_dict)
+            Taxo-->>Ingest: Taxonomy Normalized Enums
+            
+            Ingest->>Embed: generate_embedding(composite_text)
+            Embed-->>Ingest: float[1536] Vector
+            
+            Ingest->>PC: upsert_vector(id=hash, vector, metadata)
+            PC-->>Ingest: Success
+            
+            Ingest->>Log: append_ingestion_log_row(hash, filename, metadata)
+            Log-->>Ingest: CSV Row Appended
+        end
+    end
+    
+    Ingest-->>API: IngestStatusResponse {total, processed, skipped, failed}
+    API-->>Admin: HTTP 200 Ingestion Summary

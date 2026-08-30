@@ -1,0 +1,51 @@
+sequenceDiagram
+    actor User
+    participant UI as React Luxury UI
+    participant API as FastAPI (routes.py)
+    participant Guard as Guardrail Registry
+    participant Agent as LangGraph ReAct Agent
+    participant Gateway as LLM Gateway
+    participant PC as Pinecone Vector DB
+
+    User->>UI: Types chat prompt: "Casual suit for men"
+    UI->>API: POST /v1/chat {message, thread_id}
+    API->>API: Verify Auth (X-API-Key / OAuth)
+    API->>Guard: validate_input(message)
+    Guard-->>API: Pass (No toxicity/off-topic)
+
+    API->>Agent: AGENT.invoke({"messages": [user_msg]}, config)
+
+    rect rgb(255, 243, 224)
+        Note over Agent,Gateway: Turn 1: Slot Gathering & ReAct Loop
+        Agent->>Agent: Tool: check_required_fields()
+        Note over Agent: State check: gender & occasion present?
+        
+        alt Missing Required Slots
+            Agent->>Agent: Tool: ask_user(consolidated_question)
+            Agent-->>API: Interrupt Raised (ask_user)
+            API-->>UI: HTTP 200 {status: "interrupted", question: "What occasion/gender?"}
+            User->>UI: Selects/types missing slots
+            UI->>API: POST /v1/chat {resume_value, thread_id}
+            API->>Agent: AGENT.invoke(Command(resume=resume_value), config)
+        end
+    end
+
+    rect rgb(240, 247, 255)
+        Note over Agent,PC: Turn 2: Query Enrichment, Search & Outfit Curation
+        Agent->>Agent: Tool: enrich_query("casual suit for men")
+        Agent->>Gateway: generate_text(query_enrichment_prompt)
+        Gateway-->>Agent: Enriched search terms & filter JSON
+
+        Agent->>Agent: Tool: search_products(query, filters, top_k=5)
+        Agent->>PC: query_vectors(embedding, filters, top_k=5)
+        PC-->>Agent: 5 matching garment vectors + metadata
+        Note over Agent: Write last_products to FashionAgentState
+
+        Agent->>Agent: Tool: curate_outfits() [reads last_products via InjectedState]
+        Agent->>Gateway: get_chat_model() (Vertex AI primary → OpenAI failover)
+        Gateway-->>Agent: Curated OutfitCombos + Rationales
+    end
+
+    Agent-->>API: Final State Output
+    API-->>UI: HTTP 200 {messages, products, combos, rationales}
+    UI-->>User: Renders Outfit Canvas + Lightbox + Add-to-Cart

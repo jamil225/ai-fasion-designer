@@ -1,0 +1,54 @@
+flowchart TB
+    subgraph AGENT_MOD["src/agent/"]
+        ROUTES["routes.py<br/><small>POST /v1/chat<br/>Thread state & HITL resume</small>"]
+        GRAPH["graph.py<br/><small>create_react_agent()<br/>FashionAgentState</small>"]
+        TOOLS["tools.py<br/><small>check_required_fields()<br/>ask_user()<br/>enrich_query()<br/>search_products()<br/>curate_outfits()</small>"]
+        SCHEMAS_A["schemas.py<br/><small>FashionAgentState<br/>SlotCheckResult<br/>SearchFilters<br/>Product, OutfitCombo</small>"]
+        PROMPT_L["prompt_loader.py<br/><small>load_prompt() @lru_cache</small>"]
+        GUARD_DIR["guardrails/<br/><small>registry.py<br/>openai_moderation.py</small>"]
+    end
+
+    subgraph GATEWAY_MOD["src/llm_gateway/"]
+        GW["gateway.py<br/><small>LLMGateway façade<br/>generate_text()<br/>get_chat_model()</small>"]
+        PROV["providers.py<br/><small>build_text_router()<br/>build_chat_model()</small>"]
+        CB["callbacks.py<br/><small>LiteLLM & LangSmith hooks</small>"]
+    end
+
+    subgraph CORE_MOD["src/ (Core System)"]
+        MAIN["main.py<br/><small>FastAPI application<br/>LangSmith init & router mount</small>"]
+        CONFIG["config.py<br/><small>Settings (pydantic-settings)<br/>Vertex / OpenAI / Pinecone knobs</small>"]
+        INGEST["ingestion.py<br/><small>run_ingestion() sequential pipeline</small>"]
+        ING_LOG["ingestion_log.py<br/><small>append_ingestion_log_row() CSV</small>"]
+        VISION["vision.py<br/><small>extract_metadata() Gemini Vision</small>"]
+        MERGE["merge.py<br/><small>merge_product_data() CSV+Vision</small>"]
+        TAXO["taxonomy.py<br/><small>normalize_vision_output() Enums</small>"]
+        EMBED["embeddings.py<br/><small>generate_embedding() OpenAI</small>"]
+        PINE_C["pinecone_client.py<br/><small>upsert_vector() & query_vectors()</small>"]
+    end
+
+    subgraph SCRIPTS["scripts/"]
+        DEPLOY_S["deploy-and-open.sh<br/><small>macOS one-touch deploy</small>"]
+        VM_UPD["vm-update.sh<br/><small>GCP remote build & uvicorn loop</small>"]
+        HQ_DL["download_hq_images.py<br/><small>Kaggle batch image downloader</small>"]
+    end
+
+    MAIN --> ROUTES
+    ROUTES --> GRAPH
+    GRAPH --> TOOLS
+    GRAPH --> PROMPT_L
+    TOOLS --> GW
+    GW --> PROV
+    PROV --> CB
+    TOOLS --> EMBED
+    TOOLS --> PINE_C
+    INGEST --> VISION
+    INGEST --> MERGE
+    INGEST --> TAXO
+    INGEST --> EMBED
+    INGEST --> PINE_C
+    INGEST --> ING_LOG
+
+    style AGENT_MOD fill:#fff7f0,stroke:#e36500,stroke-width:2px
+    style GATEWAY_MOD fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style CORE_MOD fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style SCRIPTS fill:#e8eaf6,stroke:#283593

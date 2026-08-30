@@ -8,14 +8,16 @@ export default function Header() {
       <div className="header-content">
         <div className="header-brand">
           <div className="logo-mark">
-            <img src="/logo.jpg" alt="AURA AI VIP Logo" className="app-vip-logo" />
+            <img src="/logo.jpg" alt="AI Fashion Logo" className="app-vip-logo" />
           </div>
-          <h1 className="header-title">
-            AI Fashion <span className="title-accent">Designer</span>
-          </h1>
-          <p className="header-subtitle">
-            Vision-first garment search powered by Gemini + Pinecone
-          </p>
+          <div className="header-brand-info">
+            <h1 className="header-title">
+              ATELIER AI <span className="title-accent">Designer</span>
+            </h1>
+            <p className="header-subtitle">
+              Vision-First Agentic Outfit Architecture
+            </p>
+          </div>
         </div>
         <div className="header-actions">
           <CartButton />
